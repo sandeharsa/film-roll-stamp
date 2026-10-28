@@ -247,12 +247,19 @@ const ExifCore = (() => {
 
   // ---------- minimal ZIP (stored, no compression) ----------
   const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-  function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function crcUpdate(c, u8) { for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return c; }
+  function crc32(u8) { return (crcUpdate(0xFFFFFFFF, u8) ^ 0xFFFFFFFF) >>> 0; }
+  // CRC a Blob in small chunks so a large file never has to sit in memory whole.
+  async function crcBlob(blob) {
+    let c = 0xFFFFFFFF; const CH = 4 << 20;
+    for (let o = 0; o < blob.size; o += CH) c = crcUpdate(c, new Uint8Array(await blob.slice(o, o + CH).arrayBuffer()));
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
   class Zip {
     constructor() { this.parts = []; this.central = []; this.offset = 0; this.count = 0; }
     async add(name, blob) {
-      const data = new Uint8Array(await blob.arrayBuffer());
-      const crc = crc32(data), nm = te.encode(name), now = new Date();
+      const data = { length: blob.size };
+      const crc = await crcBlob(blob), nm = te.encode(name), now = new Date();
       const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
       const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
       if (this.offset + 30 + nm.length + data.length > 0xFFFFFFFF) throw new Error('ZIP would exceed 4 GB');
@@ -265,7 +272,7 @@ const ExifCore = (() => {
       ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true);
       ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nm.length, true);
       ch.setUint32(42, this.offset, true);
-      this.parts.push(lh.buffer, nm, data);
+      this.parts.push(lh.buffer, nm, blob); // blob stays a reference, not a copy
       this.central.push(ch.buffer, nm);
       this.offset += 30 + nm.length + data.length;
       this.count++;

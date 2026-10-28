@@ -460,12 +460,19 @@ const ExifCore = (() => {
 
   // ---------- minimal ZIP (stored, no compression) ----------
   const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-  function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function crcUpdate(c, u8) { for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return c; }
+  function crc32(u8) { return (crcUpdate(0xFFFFFFFF, u8) ^ 0xFFFFFFFF) >>> 0; }
+  // CRC a Blob in small chunks so a large file never has to sit in memory whole.
+  async function crcBlob(blob) {
+    let c = 0xFFFFFFFF; const CH = 4 << 20;
+    for (let o = 0; o < blob.size; o += CH) c = crcUpdate(c, new Uint8Array(await blob.slice(o, o + CH).arrayBuffer()));
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
   class Zip {
     constructor() { this.parts = []; this.central = []; this.offset = 0; this.count = 0; }
     async add(name, blob) {
-      const data = new Uint8Array(await blob.arrayBuffer());
-      const crc = crc32(data), nm = te.encode(name), now = new Date();
+      const data = { length: blob.size };
+      const crc = await crcBlob(blob), nm = te.encode(name), now = new Date();
       const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
       const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
       if (this.offset + 30 + nm.length + data.length > 0xFFFFFFFF) throw new Error('ZIP would exceed 4 GB');
@@ -478,7 +485,7 @@ const ExifCore = (() => {
       ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true);
       ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nm.length, true);
       ch.setUint32(42, this.offset, true);
-      this.parts.push(lh.buffer, nm, data);
+      this.parts.push(lh.buffer, nm, blob); // blob stays a reference, not a copy
       this.central.push(ch.buffer, nm);
       this.offset += 30 + nm.length + data.length;
       this.count++;
@@ -632,8 +639,8 @@ function render(){
     <td class="n"></td><td class="name">${esc(r.name)}</td><td class="cur">…</td><td class="ts"></td><td class="st"></td>
   </tr>`).join('')}</tbody></table></div>`;
   const obs = new IntersectionObserver(es => es.forEach(e => {
-    if (!e.isIntersecting) return; const tr = e.target.closest('tr'), r = rows[tr.dataset.i];
-    if (!r.url) r.url = URL.createObjectURL(r.file); e.target.src = r.url; obs.unobserve(e.target);
+    if (!e.isIntersecting) return; obs.unobserve(e.target);
+    queueThumb(e.target, rows[e.target.closest('tr').dataset.i]);
   }), { rootMargin: '200px' });
   document.querySelectorAll('td.th img').forEach(img => obs.observe(img));
   document.querySelectorAll('.inc').forEach(cb => cb.onchange = () => { rows[cb.closest('tr').dataset.i].include = cb.checked; changed(); });
@@ -727,7 +734,7 @@ async function writeAll(){
         if (inPlace) blob = new Blob([await blob.arrayBuffer()], { type: blob.type }); // detach from the original before replacing it
         const fh = await outDir.getFileHandle(r.name, { create: true });
         const w = await fh.createWritable(); await w.write(blob); await w.close();
-        if (inPlace) { r.file = await r.handle.getFile(); if (r.url) { URL.revokeObjectURL(r.url); r.url = null; } }
+        if (inPlace) r.file = await r.handle.getFile();
       }
       setStatus(r, 'done'); ok++;
     } catch(e) { setStatus(r, 'error', e.message || String(e)); fail++; }
@@ -747,33 +754,91 @@ async function writeAll(){
 $('#writeBtn').onclick = writeAll;
 $('#mbWrite').onclick = writeAll;
 
-let zipUrl = null;
-function offerSave(files){
-  const bar = document.createElement('div'); bar.className = 'savebar';
-  const canShare = !!(navigator.canShare && navigator.share && navigator.canShare({ files }));
-  if (canShare) {
-    const b = document.createElement('button'); b.className = 'primary'; b.textContent = 'Save to Photos / Share…';
-    b.onclick = async () => {
-      try { await navigator.share({ files }); }
-      catch(e) { if (e.name !== 'AbortError') alert('Sharing failed (' + e.message + '). Try the ZIP instead, or fewer files at a time.'); }
-    };
-    bar.appendChild(b);
+// Thumbnails: decode one scan at a time and keep only a tiny JPEG. Showing full-size
+// scans in <img> tags costs ~100 MB each once decoded, which gets the tab killed on iOS.
+const thumbQ = []; let thumbRunning = false;
+function queueThumb(img, r){ thumbQ.push([img, r]); if (!thumbRunning) runThumbs(); }
+async function runThumbs(){
+  thumbRunning = true;
+  while (thumbQ.length) {
+    const [img, r] = thumbQ.shift();
+    if (!rows.includes(r)) continue;
+    try { if (!r.url) r.url = await makeThumb(r.file); img.src = r.url; } catch(e) {}
   }
-  const mb = (files.reduce((a,f) => a + f.size, 0) / 1048576).toFixed(0);
-  const z = document.createElement('button'); z.textContent = `Make ZIP (${mb} MB)`;
-  if (!canShare) z.className = 'primary';
-  z.onclick = async () => {
-    z.disabled = true; z.textContent = 'Building ZIP…';
-    try {
-      const zip = new ExifCore.Zip(); for (const f of files) await zip.add(f.name, f);
-      if (zipUrl) URL.revokeObjectURL(zipUrl); zipUrl = URL.createObjectURL(zip.finish());
-      const a = document.createElement('a'); a.className = 'button' + (canShare ? '' : ' primary');
-      a.href = zipUrl; a.download = `${($('#folderLabel').dataset.name || 'scans')}-exif.zip`; a.textContent = 'Download ZIP';
-      z.replaceWith(a);
-    } catch(e) { z.disabled = false; z.textContent = 'Make ZIP'; alert(e.message); }
-  };
-  bar.appendChild(z);
-  $('#summary').appendChild(bar);
+  thumbRunning = false;
+}
+async function makeThumb(file){
+  const W = 216, H = 144; let src, release;
+  try { src = await createImageBitmap(file, { resizeWidth: W, resizeQuality: 'low' }); release = () => src.close(); }
+  catch(e) {
+    const u = URL.createObjectURL(file); src = new Image(); src.src = u; await src.decode();
+    release = () => { src.src = ''; URL.revokeObjectURL(u); };
+  }
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const s = Math.max(W / src.width, H / src.height), dw = src.width * s, dh = src.height * s;
+  c.getContext('2d').drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh); release();
+  const b = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.7)); c.width = c.height = 0;
+  return URL.createObjectURL(b);
+}
+
+// iOS can't take a whole roll through the share sheet or one huge download, so both are batched.
+function batch(files, maxBytes, maxCount){
+  const out = []; let cur = [], bytes = 0;
+  for (const f of files) {
+    if (cur.length && (bytes + f.size > maxBytes || cur.length >= maxCount)) { out.push(cur); cur = []; bytes = 0; }
+    cur.push(f); bytes += f.size;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+const zipUrls = [];
+function offerSave(files){
+  zipUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
+  const MB = 1048576, name = $('#folderLabel').dataset.name || 'scans';
+  const canShare = !!(navigator.canShare && navigator.share && navigator.canShare({ files: files.slice(0, 1) }));
+  const range = (b) => { const a = files.indexOf(b[0]) + 1, z = a + b.length - 1; return a === z ? `${a}` : `${a}–${z}`; };
+  if (canShare) {
+    const groups = batch(files, 160 * MB, 10);
+    if (groups.length > 1) {
+      const p = document.createElement('p'); p.className = 'hint';
+      p.textContent = `Save in ${groups.length} batches — iOS can't pass a whole roll through the share sheet at once. Tap each, then “Save Images”.`;
+      $('#summary').appendChild(p);
+    }
+    const bar = document.createElement('div'); bar.className = 'savebar';
+    groups.forEach(g => {
+      const b = document.createElement('button'); b.className = 'primary';
+      const label = groups.length === 1 ? 'Save to Photos / Share…' : `Save ${range(g)}`;
+      b.textContent = label;
+      b.onclick = async () => {
+        if (!navigator.canShare({ files: g })) { alert('This batch is too large to share. Try the ZIP instead.'); return; }
+        try { await navigator.share({ files: g }); b.className = ''; b.textContent = '✓ ' + label.replace(/^Save /, ''); }
+        catch(e) { if (e.name !== 'AbortError') alert('Sharing failed (' + e.message + '). Try the ZIP instead.'); }
+      };
+      bar.appendChild(b);
+    });
+    $('#summary').appendChild(bar);
+  }
+  const zgroups = batch(files, 300 * MB, Infinity);
+  const zbar = document.createElement('div'); zbar.className = 'savebar';
+  zgroups.forEach((g, i) => {
+    const mb = Math.round(g.reduce((a, f) => a + f.size, 0) / MB);
+    const part = zgroups.length > 1 ? ` ${i + 1}/${zgroups.length}` : '';
+    const z = document.createElement('button'); z.textContent = `Make ZIP${part} (${mb} MB)`;
+    if (!canShare) z.className = 'primary';
+    z.onclick = async () => {
+      z.disabled = true;
+      try {
+        const zip = new ExifCore.Zip();
+        for (let k = 0; k < g.length; k++) { z.textContent = `Building ZIP${part}… ${k}/${g.length}`; await zip.add(g[k].name, g[k]); }
+        const url = URL.createObjectURL(zip.finish()); zipUrls.push(url);
+        const a = document.createElement('a'); a.className = 'button' + (canShare ? '' : ' primary');
+        a.href = url; a.download = `${name}-exif${zgroups.length > 1 ? '-' + (i + 1) : ''}.zip`; a.textContent = `Download ZIP${part}`;
+        z.replaceWith(a);
+      } catch(e) { z.disabled = false; z.textContent = `Make ZIP${part}`; alert(e.message); }
+    };
+    zbar.appendChild(z);
+  });
+  $('#summary').appendChild(zbar);
 }
 
 // ---------- opening ----------
