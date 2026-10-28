@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roll Stamp</title>
+<meta name="theme-color" content="#1c1a17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Roll Stamp">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f3f0e8; --panel:#fbfaf6; --ink:#1c1a17; --muted:#6e685e; --line:#ddd5c6; --field:#fff;
+  --accent:#b5321e; --accent-ink:#fff; --ok:#2e6b3a; --warn:#94650a; --err:#b5321e; --row:#f7f4ec;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#121110; --panel:#1b1916; --ink:#ebe5d8; --muted:#9a9284; --line:#322e28; --field:#23201c;
+        --accent:#e2563c; --accent-ink:#140e0b; --ok:#7dc48b; --warn:#e2b552; --err:#ff7b64; --row:#1f1d19;}
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans);min-height:100vh}
+.strip{height:14px;background:
+  repeating-linear-gradient(90deg, transparent 0 10px, var(--bg) 10px 18px) center/100% 6px no-repeat, var(--ink)}
+header{display:flex;align-items:baseline;gap:14px;padding:18px 24px 14px;flex-wrap:wrap}
+header h1{margin:0;font-size:22px;letter-spacing:-.01em;font-weight:650}
+header h1 span{color:var(--accent)}
+header p{margin:0;color:var(--muted)}
+main{display:grid;grid-template-columns:360px minmax(0,1fr);gap:20px;padding:0 24px 32px;align-items:start}
+@media (max-width:900px){main{grid-template-columns:minmax(0,1fr);padding:0 16px 24px}}
+aside,section.files{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+aside{padding:6px 16px 16px;position:sticky;top:12px}
+@media (max-width:900px){aside{position:static}}
+fieldset{border:0;border-top:1px solid var(--line);margin:0;padding:12px 0 8px;min-width:0}
+fieldset:first-of-type{border-top:0}
+fieldset .hint{clear:both}
+legend{float:left;width:100%;margin-bottom:6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 0 4px}
+.grid{clear:both;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px}
+.grid .full{grid-column:1/-1}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+label.check{flex-direction:row;align-items:flex-start;gap:8px;color:var(--ink);font-size:13px}
+label.check input{margin-top:2px}
+input[type=text],input[type=number],input[type=date],input[type=time],select{
+  font:inherit;font-size:14px;color:var(--ink);background:var(--field);border:1px solid var(--line);
+  border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:0;border-color:var(--accent)}
+.hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+.hint b{color:var(--ink);font-weight:600}
+details summary{cursor:pointer;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:12px 0 6px;border-top:1px solid var(--line);list-style:none}
+details summary::before{content:"+ "} details[open] summary::before{content:"– "}
+.presets{display:flex;gap:6px;padding:10px 0 6px}
+.presets select{flex:1}
+button{font:inherit;font-size:13px;border-radius:6px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:7px 12px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;padding:9px 18px}
+button.primary:disabled{opacity:.45;cursor:not-allowed}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line)}
+.toolbar .folder{font-family:var(--mono);font-size:13px}
+.toolbar .spacer{flex:1}
+.out{display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:13px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.out label{flex-direction:row;align-items:center;gap:6px;color:var(--ink);font-size:13px}
+#zipNote{display:block}
+.out input[type=text]{width:110px;padding:4px 7px;font-family:var(--mono);font-size:13px}
+.empty{padding:56px 24px;text-align:center;color:var(--muted)}
+.empty .drop{border:1.5px dashed var(--line);border-radius:10px;padding:40px 20px;margin:0 auto;max-width:520px}
+.empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+body.drag .empty .drop{border-color:var(--accent);color:var(--ink)}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tr.off td{opacity:.42}
+tr:hover td{background:var(--row)}
+td.th img{width:54px;height:36px;object-fit:cover;border-radius:3px;display:block;background:var(--line)}
+td.th .ph{width:54px;height:36px;border-radius:3px;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted)}
+td.n{font-family:var(--mono);color:var(--muted);width:1%}
+td.name{font-family:var(--mono);word-break:break-all}
+td.cur{color:var(--muted);font-size:12px}
+td.ts{font-family:var(--mono);white-space:nowrap}
+td.st{white-space:nowrap;font-size:12px}
+.badge{display:inline-block;font-size:10px;letter-spacing:.06em;border:1px solid var(--warn);color:var(--warn);border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:1px}
+.ok{color:var(--ok)} .err{color:var(--err)} .work{color:var(--muted)}
+.summary{padding:10px 16px;font-size:13px;border-bottom:1px solid var(--line);display:none}
+.summary.show{display:block}
+.progress{height:3px;background:transparent}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+footer{color:var(--muted);font-size:12px;padding:0 24px 28px;max-width:900px}
+.savebar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+a.button{display:inline-block;text-decoration:none;font-size:13px;border-radius:6px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:7px 12px}
+.savebar .primary, a.button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;padding:9px 18px}
+.mobilebar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:5;gap:12px;align-items:center;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}
+.mobilebar span{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.mobilebar button{flex:1}
+@media (pointer:coarse){input[type=text],input[type=number],input[type=date],input[type=time],select{font-size:16px}}
+@media (max-width:900px){section.files{order:-1}}
+@media (max-width:640px){
+  header{padding:14px 16px 12px} th.cur,td.cur{display:none} td{padding:6px 5px} td.name{font-size:11px;word-break:normal;overflow-wrap:anywhere}
+  td.ts{font-size:12px} td.th img,td.th .ph{width:40px;height:28px} #zipNote{font-size:12px}
+  #writeBtn,.toolbar .spacer{display:none}
+  body.has-rows .mobilebar{display:flex} body.has-rows{padding-bottom:84px}
+}
+</style>
+</head>
+<body>
+<div class="strip" aria-hidden="true"></div>
+<header>
+  <h1>Roll<span>·</span>Stamp</h1>
+  <p>EXIF for film scans — date, gear and stock across a whole roll.</p>
+</header>
+
+<main>
+<aside>
+  <div class="presets">
+    <select id="presetSel" aria-label="Presets"><option value="">Presets…</option></select>
+    <button id="presetSave" title="Save current settings as a preset">Save</button>
+    <button id="presetDel" title="Delete selected preset">Delete</button>
+  </div>
+
+  <fieldset>
+    <legend>Roll timing</legend>
+    <div class="grid">
+      <label>Date<input type="date" id="date"></label>
+      <label>First frame time<input type="time" id="time" step="1"></label>
+      <label>Increment (seconds)<input type="number" id="interval" min="1" step="1" value="5"></label>
+      <label>UTC offset<input type="text" id="offset" placeholder="+11:00" spellcheck="false"></label>
+      <label class="check full"><input type="checkbox" id="reverse"> Reverse order (last file is frame 1)</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Camera body</legend>
+    <div class="grid">
+      <label>Make<input type="text" id="make" list="dlMakes" placeholder="keep existing"></label>
+      <label>Model<input type="text" id="model" list="dlBodies" placeholder="keep existing"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Lens</legend>
+    <div class="grid">
+      <label>Make<input type="text" id="lensMake" list="dlLensMakes" placeholder="e.g. Leica"></label>
+      <label>Model<input type="text" id="lensModel" list="dlLenses" placeholder="e.g. Summicron-M 1:2/35"></label>
+      <label>Focal length (mm)<input type="number" id="focal" min="1" step="any"></label>
+      <label>Aperture (f/) <input type="number" id="fnumber" min="0.7" step="any" placeholder="optional"></label>
+      <label class="full">Film format<select id="format"></select></label>
+    </div>
+    <p class="hint" id="equivHint"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Film</legend>
+    <div class="grid">
+      <label class="full">Stock<input type="text" id="film" list="dlFilms" placeholder="e.g. Ilford HP5 Plus 400"></label>
+      <label>ISO (as shot)<input type="number" id="iso" min="1" step="1"></label>
+      <span></span>
+      <label class="check full"><input type="checkbox" id="filmDesc" checked> Also write stock to Image Description</label>
+    </div>
+    <p class="hint">EXIF has no film field. The stock goes into <b>UserComment</b>, and optionally <b>ImageDescription</b> — Lightroom shows that as the Caption, so it's searchable. Set ISO to your push/pull speed if you rated it differently.</p>
+  </fieldset>
+
+  <details>
+    <summary>More</summary>
+    <div class="grid">
+      <label>Artist<input type="text" id="artist" placeholder="keep existing"></label>
+      <label>Copyright<input type="text" id="copyright" placeholder="keep existing"></label>
+      <label class="check full"><input type="checkbox" id="digitized"> Also overwrite DateTimeDigitized (normally left as the lab's scan time)</label>
+      <label class="check full"><input type="checkbox" id="stripXmp"> Remove existing XMP block — only if a file shows an XMP badge and your date doesn't appear in Lightroom/Photos</label>
+    </div>
+  </details>
+</aside>
+
+<section class="files">
+  <div class="toolbar">
+    <button id="openBtn">Open folder</button>
+    <button id="folderBtn" hidden>Whole folder</button>
+    <span class="folder" id="folderLabel"></span>
+    <span class="spacer"></span>
+    <button class="primary" id="writeBtn" disabled>Write EXIF</button>
+  </div>
+  <div class="out" id="outOpts" hidden>
+    <label><input type="radio" name="outMode" value="subfolder" checked> Save copies to subfolder</label>
+    <input type="text" id="subName" value="exif" spellcheck="false" aria-label="Subfolder name">
+    <label><input type="radio" name="outMode" value="overwrite"> Overwrite originals</label>
+  </div>
+  <div class="out" id="zipNote" hidden>This browser can't save back into folders. After writing you'll get <b>&nbsp;Save to Photos / Share&nbsp;</b> (on phones) or a ZIP. On a computer, Chrome, Edge or Arc can save straight into the folder.</div>
+  <div class="progress"><i id="bar"></i></div>
+  <div class="summary" id="summary"></div>
+  <div id="list">
+    <div class="empty"><div class="drop">
+      <strong id="emptyTitle">Open a folder of scans</strong>
+      <span id="emptyText">or drop it here.</span> JPEG and TIFF files are listed in filename order; nothing is written until you press Write.
+    </div></div>
+  </div>
+</section>
+</main>
+
+<footer>Everything runs locally in this page — no uploads. JPEG image data is copied byte-for-byte (no recompression); TIFFs get a new tag directory appended. Existing tags you leave blank are kept. Embedded EXIF thumbnails and maker notes in JPEGs are dropped.</footer>
+
+<input type="file" id="dirInput" webkitdirectory multiple hidden>
+<input type="file" id="filesInput" multiple accept="image/jpeg,image/tiff,.jpg,.jpeg,.tif,.tiff" hidden>
+<div class="mobilebar"><span id="mbCount"></span><button class="primary" id="mbWrite" disabled>Write EXIF</button></div>
+<datalist id="dlMakes"></datalist><datalist id="dlBodies"></datalist>
+<datalist id="dlLensMakes"></datalist><datalist id="dlLenses"></datalist><datalist id="dlFilms"></datalist>
+
+<script>
+/*CORE*/
+</script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- reference data ----------
+const BODIES = {
+  'Leica MP':'Leica Camera AG','Leica M-A':'Leica Camera AG','Leica M6':'Leica Camera AG','Leica M7':'Leica Camera AG',
+  'Hasselblad 500C/M':'Hasselblad','Hasselblad 503CW':'Hasselblad','Hasselblad SWC':'Hasselblad','Hasselblad 500EL/M':'Hasselblad',
+  'Mamiya 7 II':'Mamiya','Pentax 67':'Asahi Pentax','Nikon F3':'Nikon','Nikon FM2':'Nikon','Canon AE-1':'Canon',
+  'Olympus OM-1':'Olympus','Contax T2':'Kyocera','Ricoh GR1':'Ricoh','Fujifilm GW690III':'Fujifilm','Hasselblad XPan':'Hasselblad'
+};
+const LENSES = {
+  'Summicron-M 1:2/35 ASPH.':'Leica','Summilux-M 1:1.4/35 ASPH.':'Leica','Summicron-M 1:2/28 ASPH.':'Leica','Elmarit-M 1:2.8/28 ASPH.':'Leica',
+  'Summicron-M 1:2/50':'Leica','Summilux-M 1:1.4/50 ASPH.':'Leica','APO-Summicron-M 1:2/50 ASPH.':'Leica','Summicron-M 1:2/90 ASPH.':'Leica',
+  'Voigtländer Nokton 35mm f/1.4':'Voigtländer','Voigtländer Color-Skopar 28mm f/2.8':'Voigtländer',
+  'Planar C 80mm f/2.8 T*':'Carl Zeiss','Distagon CF 50mm f/4 FLE':'Carl Zeiss','Sonnar C 150mm f/4 T*':'Carl Zeiss','Biogon 38mm f/4.5 T*':'Carl Zeiss'
+};
+const FILMS = {
+  'Ilford HP5 Plus 400':400,'Ilford FP4 Plus 125':125,'Ilford Delta 100':100,'Ilford Delta 400':400,'Ilford Delta 3200':3200,
+  'Ilford Pan F Plus 50':50,'Ilford XP2 Super 400':400,'Kodak Tri-X 400':400,'Kodak T-Max 100':100,'Kodak T-Max 400':400,
+  'Kodak Double-X 5222':250,'Kodak Portra 160':160,'Kodak Portra 400':400,'Kodak Portra 800':800,'Kodak Ektar 100':100,
+  'Kodak Gold 200':200,'Kodak UltraMax 400':400,'Kodak Ektachrome E100':100,'Fujifilm Velvia 50':50,'Fujifilm Provia 100F':100,
+  'CineStill 800T':800,'CineStill 400D':400,'CineStill 50D':50,'Lomography Color Negative 400':400
+};
+const FORMATS = { // crop factor on the diagonal vs 24×36
+  '35':['35mm (24×36)',1],'half':['Half frame (18×24)',1.44],'xpan':['XPan panorama (24×65)',0.62],
+  '645':['6×4.5',0.62],'66':['6×6',0.55],'67':['6×7',0.49],'69':['6×9',0.43]
+};
+const fill = (id, items) => $(id).innerHTML = items.map(v => `<option value="${esc(v)}">`).join('');
+fill('#dlBodies', Object.keys(BODIES)); fill('#dlMakes', [...new Set(Object.values(BODIES))]);
+fill('#dlLenses', Object.keys(LENSES)); fill('#dlLensMakes', [...new Set(Object.values(LENSES))]);
+fill('#dlFilms', Object.keys(FILMS));
+$('#format').innerHTML = Object.entries(FORMATS).map(([k,[l]]) => `<option value="${k}">${l}</option>`).join('');
+
+// ---------- settings persistence ----------
+const IDS = ['date','time','interval','offset','reverse','make','model','lensMake','lensModel','focal','fnumber','format','film','iso','filmDesc','artist','copyright','digitized','stripXmp','subName'];
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem('rollstamp.'+k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem('rollstamp.'+k, JSON.stringify(v)); } catch(e){} }
+};
+function getSettings(){
+  const o = {};
+  for (const id of IDS){ const el = $('#'+id); o[id] = el.type === 'checkbox' ? el.checked : el.value; }
+  o.outMode = document.querySelector('input[name=outMode]:checked').value;
+  return o;
+}
+function setSettings(o){
+  for (const id of IDS){ if (!(id in o)) continue; const el = $('#'+id); if (el.type === 'checkbox') el.checked = !!o[id]; else el.value = o[id] ?? ''; }
+  if (o.outMode) { const r = document.querySelector(`input[name=outMode][value="${o.outMode}"]`); if (r) r.checked = true; }
+}
+const pad = n => String(n).padStart(2,'0');
+const today = new Date();
+let offsetTouched = false;
+function localOffsetFor(dateStr, timeStr){
+  const [y,m,d] = (dateStr||'').split('-').map(Number), [h,mi] = (timeStr||'12:00').split(':').map(Number);
+  const dt = isFinite(y) && y ? new Date(y, m-1, d, h||0, mi||0) : new Date();
+  const mins = -dt.getTimezoneOffset(), s = mins >= 0 ? '+' : '-', a = Math.abs(mins);
+  return `${s}${pad(Math.floor(a/60))}:${pad(a%60)}`;
+}
+setSettings({
+  date:`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`, time:'12:00:00', interval:5,
+  make:'Leica Camera AG', model:'Leica MP', film:'Ilford HP5 Plus 400', iso:400, format:'35', filmDesc:true, subName:'exif'
+});
+const last = store.get('last');
+if (last) { setSettings(last); offsetTouched = !!last.offset && last.offset !== localOffsetFor(last.date, last.time); }
+if (!$('#offset').value) $('#offset').value = localOffsetFor($('#date').value, $('#time').value);
+
+// presets
+function renderPresets(sel){
+  const p = store.get('presets') || {};
+  $('#presetSel').innerHTML = '<option value="">Presets…</option>' + Object.keys(p).sort().map(k => `<option${k===sel?' selected':''}>${esc(k)}</option>`).join('');
+}
+renderPresets();
+$('#presetSave').onclick = () => {
+  const name = prompt('Preset name (saves camera, lens, film and extras — not the date):', $('#presetSel').value || [$('#model').value, $('#film').value].filter(Boolean).join(' + '));
+  if (!name) return;
+  const s = getSettings(); delete s.date; delete s.time; delete s.offset;
+  const p = store.get('presets') || {}; p[name] = s; store.set('presets', p); renderPresets(name);
+};
+$('#presetDel').onclick = () => {
+  const k = $('#presetSel').value; if (!k || !confirm(`Delete preset “${k}”?`)) return;
+  const p = store.get('presets') || {}; delete p[k]; store.set('presets', p); renderPresets();
+};
+$('#presetSel').onchange = () => { const p = store.get('presets') || {}; const s = p[$('#presetSel').value]; if (s) { setSettings(s); changed(); } };
+
+// smart fills
+$('#model').addEventListener('change', () => { const mk = BODIES[$('#model').value]; if (mk) $('#make').value = mk; changed(); });
+$('#lensModel').addEventListener('change', () => {
+  const v = $('#lensModel').value, mk = LENSES[v];
+  if (mk) $('#lensMake').value = mk;
+  const m = v.match(/(\d+(?:\.\d+)?)\s?mm/i) || v.match(/1:[\d.]+\/(\d+(?:\.\d+)?)/);
+  if (m) $('#focal').value = m[1];
+  changed();
+});
+$('#film').addEventListener('change', () => { const iso = FILMS[$('#film').value]; if (iso) $('#iso').value = iso; changed(); });
+$('#offset').addEventListener('input', () => { offsetTouched = true; });
+['#date','#time'].forEach(s => $(s).addEventListener('change', () => { if (!offsetTouched) $('#offset').value = localOffsetFor($('#date').value, $('#time').value); }));
+document.querySelectorAll('aside input, aside select, #subName, input[name=outMode]').forEach(el => el.addEventListener('input', changed));
+
+function updateEquiv(){
+  const f = parseFloat($('#focal').value), [label, fac] = FORMATS[$('#format').value] || FORMATS['35'];
+  $('#equivHint').innerHTML = f > 0 ? (fac === 1 ? `${f}mm on 35mm — written as-is.` : `${f}mm on ${esc(label)} ≈ <b>${Math.round(f*fac)}mm</b> full-frame equivalent (FocalLengthIn35mmFilm).`) : '';
+}
+
+// ---------- files ----------
+let rows = [], dirHandle = null, busy = false;
+const kindOf = n => /\.jpe?g$/i.test(n) ? 'jpeg' : /\.tiff?$/i.test(n) ? 'tiff' : null;
+
+async function loadDir(handle){
+  const list = [];
+  for await (const [name, h] of handle.entries()) if (h.kind === 'file' && kindOf(name) && !name.startsWith('.')) list.push({ name, handle: h, file: await h.getFile() });
+  setRows(list, handle.name, handle);
+}
+function setRows(list, label, handle){
+  rows.forEach(r => r.url && URL.revokeObjectURL(r.url));
+  dirHandle = handle || null;
+  rows = list.sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}))
+             .map(r => ({ ...r, kind: kindOf(r.name), include: true, info: null, status: '', msg: '' }));
+  $('#folderLabel').textContent = rows.length ? `${label} · ${rows.length} scan${rows.length===1?'':'s'}` : (label ? `${label} · no JPEG/TIFF files` : '');
+  $('#outOpts').hidden = !dirHandle || !rows.length;
+  $('#zipNote').hidden = !!dirHandle || !rows.length;
+  $('#summary').className = 'summary';
+  document.body.classList.toggle('has-rows', rows.length > 0);
+  render(); loadInfos();
+}
+function render(){
+  if (!rows.length) return;
+  $('#list').innerHTML = `<div class="tablewrap"><table><thead><tr>
+    <th><input type="checkbox" id="all" checked aria-label="Select all"></th><th></th><th>#</th><th>File</th><th class="cur">Currently</th><th>New timestamp</th><th></th>
+  </tr></thead><tbody>${rows.map((r,i) => `<tr data-i="${i}">
+    <td><input type="checkbox" class="inc" ${r.include?'checked':''} aria-label="Include ${esc(r.name)}"></td>
+    <td class="th">${r.kind==='jpeg' ? `<img loading="lazy" decoding="async" alt="">` : `<div class="ph">TIFF</div>`}</td>
+    <td class="n"></td><td class="name">${esc(r.name)}</td><td class="cur">…</td><td class="ts"></td><td class="st"></td>
+  </tr>`).join('')}</tbody></table></div>`;
+  const obs = new IntersectionObserver(es => es.forEach(e => {
+    if (!e.isIntersecting) return; const tr = e.target.closest('tr'), r = rows[tr.dataset.i];
+    if (!r.url) r.url = URL.createObjectURL(r.file); e.target.src = r.url; obs.unobserve(e.target);
+  }), { rootMargin: '200px' });
+  document.querySelectorAll('td.th img').forEach(img => obs.observe(img));
+  document.querySelectorAll('.inc').forEach(cb => cb.onchange = () => { rows[cb.closest('tr').dataset.i].include = cb.checked; changed(); });
+  $('#all').onchange = e => { rows.forEach(r => r.include = e.target.checked); document.querySelectorAll('.inc').forEach(cb => cb.checked = e.target.checked); changed(); };
+  rows.forEach((r,i) => paintInfo(i)); changed();
+}
+function paintInfo(i){
+  const r = rows[i], td = document.querySelector(`tr[data-i="${i}"] td.cur`); if (!td) return;
+  if (!r.info) { td.textContent = '…'; return; }
+  if (r.info.error) { td.innerHTML = `<span class="err">${esc(r.info.error)}</span>`; return; }
+  const d = r.info.date ? r.info.date.replace(/^(\d{4}):(\d\d):(\d\d)/, '$1-$2-$3') : 'no date';
+  const cam = [r.info.make, r.info.model].filter(Boolean).join(' ');
+  td.innerHTML = `${esc(d)}${cam ? ' · ' + esc(cam) : ''}${r.info.hasXmp ? '<span class="badge" title="This file has an XMP block. Some apps read dates from XMP before EXIF — see “Remove existing XMP” under More.">XMP</span>' : ''}`;
+}
+async function loadInfos(){
+  const mine = rows;
+  for (let i = 0; i < mine.length; i++){
+    if (rows !== mine) return;
+    const r = mine[i];
+    try { r.info = ExifCore.readInfo(new Uint8Array(await r.file.slice(0, 1 << 20).arrayBuffer()), r.kind); }
+    catch(e){ r.info = { error: e.message }; }
+    paintInfo(i);
+  }
+}
+
+// ---------- timestamps ----------
+function times(){
+  const d = $('#date').value, t = $('#time').value, step = Math.max(1, parseInt($('#interval').value, 10) || 5);
+  const map = new Map(); if (!d || !t) return map;
+  const [y,m,dd] = d.split('-').map(Number), [h,mi,s] = t.split(':').map(Number);
+  const start = Date.UTC(y, m-1, dd, h||0, mi||0, s||0);
+  let order = rows.filter(r => r.include); if ($('#reverse').checked) order = order.slice().reverse();
+  order.forEach((r,k) => { const x = new Date(start + k*step*1000);
+    map.set(r, { exif:`${x.getUTCFullYear()}:${pad(x.getUTCMonth()+1)}:${pad(x.getUTCDate())} ${pad(x.getUTCHours())}:${pad(x.getUTCMinutes())}:${pad(x.getUTCSeconds())}`, frame:k+1 }); });
+  return map;
+}
+function changed(){
+  updateEquiv(); store.set('last', getSettings());
+  const tm = times();
+  rows.forEach((r,i) => {
+    const tr = document.querySelector(`tr[data-i="${i}"]`); if (!tr) return;
+    const v = tm.get(r); tr.classList.toggle('off', !r.include);
+    tr.querySelector('.n').textContent = v ? v.frame : '';
+    tr.querySelector('.ts').textContent = v ? v.exif.replace(/^(\d{4}):(\d\d):(\d\d)/, '$1-$2-$3') : '—';
+  });
+  $('#writeBtn').disabled = $('#mbWrite').disabled = busy || !tm.size;
+  $('#mbCount').textContent = tm.size ? `${tm.size} frame${tm.size===1?'':'s'}` : '';
+}
+function setStatus(r, status, msg){
+  r.status = status; const i = rows.indexOf(r), td = document.querySelector(`tr[data-i="${i}"] td.st`); if (!td) return;
+  td.innerHTML = status === 'done' ? '<span class="ok">✓ written</span>' : status === 'work' ? '<span class="work">writing…</span>' : status === 'error' ? `<span class="err" title="${esc(msg)}" onclick="alert(this.title)">✕ ${esc(msg)}</span>` : '';
+}
+
+// ---------- write ----------
+async function writeAll(){
+  const off = $('#offset').value.trim();
+  if (off && !/^[+-]\d{2}:\d{2}$/.test(off)) { alert('UTC offset should look like +11:00 or -05:00 (or leave it blank).'); return; }
+  const tm = times(); if (!tm.size) return;
+  const mode = document.querySelector('input[name=outMode]:checked').value;
+  const sub = $('#subName').value.trim().replace(/[\\/:*?"<>|]/g, '') || 'exif';
+  if (dirHandle && mode === 'overwrite' && !confirm(`Overwrite ${tm.size} original file${tm.size===1?'':'s'} in “${dirHandle.name}”? This can't be undone.`)) return;
+  const num = id => { const x = parseFloat($('#'+id).value); return isFinite(x) && x > 0 ? x : null; };
+  const v = id => $('#'+id).value.trim();
+  const focal = num('focal'), fac = (FORMATS[$('#format').value] || FORMATS['35'])[1];
+  const base = {
+    offset: off || null, make: v('make'), model: v('model'), lensMake: v('lensMake'), lensModel: v('lensModel'),
+    focal, focal35: focal ? Math.round(focal * fac) : null, fnumber: num('fnumber'), iso: num('iso'),
+    film: v('film'), filmInDescription: $('#filmDesc').checked, artist: v('artist'), copyright: v('copyright'),
+    setDigitized: $('#digitized').checked, stripXmp: $('#stripXmp').checked
+  };
+
+  busy = true; changed(); $('#openBtn').disabled = true;
+  let outDir = null, outputs = null;
+  try {
+    if (dirHandle) {
+      if ((await dirHandle.queryPermission({mode:'readwrite'})) !== 'granted' && (await dirHandle.requestPermission({mode:'readwrite'})) !== 'granted') throw new Error('Permission to write to the folder was not granted.');
+      outDir = mode === 'overwrite' ? dirHandle : await dirHandle.getDirectoryHandle(sub, { create: true });
+    } else outputs = [];
+  } catch(e) { alert(e.message); busy = false; $('#openBtn').disabled = false; changed(); return; }
+
+  const todo = [...tm.keys()]; let ok = 0, fail = 0;
+  rows.forEach(r => setStatus(r, ''));
+  for (const r of todo){
+    setStatus(r, 'work');
+    try {
+      const ed = { ...base, dateTime: tm.get(r).exif };
+      let blob = r.kind === 'jpeg' ? await ExifCore.processJpeg(r.file, ed) : await ExifCore.processTiff(r.file, ed);
+      if (outputs) outputs.push(new File([blob], r.name, { type: blob.type }));
+      else {
+        const inPlace = outDir === dirHandle;
+        if (inPlace) blob = new Blob([await blob.arrayBuffer()], { type: blob.type }); // detach from the original before replacing it
+        const fh = await outDir.getFileHandle(r.name, { create: true });
+        const w = await fh.createWritable(); await w.write(blob); await w.close();
+        if (inPlace) { r.file = await r.handle.getFile(); if (r.url) { URL.revokeObjectURL(r.url); r.url = null; } }
+      }
+      setStatus(r, 'done'); ok++;
+    } catch(e) { setStatus(r, 'error', e.message || String(e)); fail++; }
+    $('#bar').style.width = `${Math.round((ok+fail)/todo.length*100)}%`;
+  }
+  let where = '';
+  if (outDir && ok) where = mode === 'overwrite' ? ' in place' : ` to “${dirHandle.name}/${sub}”`;
+  else if (outputs && ok) where = ' — save them below';
+  const s = $('#summary'); s.className = 'summary show';
+  s.innerHTML = `<span class="${fail ? 'err' : 'ok'}">${ok} file${ok===1?'':'s'} tagged${esc(where)}${fail ? ` · ${fail} failed (tap the ✕ for details)` : ''}.</span>`;
+  if (outputs && outputs.length) offerSave(outputs);
+  s.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  busy = false; $('#openBtn').disabled = false; changed();
+  setTimeout(() => { $('#bar').style.width = '0'; }, 800);
+  if (mode === 'overwrite' && dirHandle) { rows.forEach(r => r.info = null); loadInfos(); }
+}
+$('#writeBtn').onclick = writeAll;
+$('#mbWrite').onclick = writeAll;
+
+let zipUrl = null;
+function offerSave(files){
+  const bar = document.createElement('div'); bar.className = 'savebar';
+  const canShare = !!(navigator.canShare && navigator.share && navigator.canShare({ files }));
+  if (canShare) {
+    const b = document.createElement('button'); b.className = 'primary'; b.textContent = 'Save to Photos / Share…';
+    b.onclick = async () => {
+      try { await navigator.share({ files }); }
+      catch(e) { if (e.name !== 'AbortError') alert('Sharing failed (' + e.message + '). Try the ZIP instead, or fewer files at a time.'); }
+    };
+    bar.appendChild(b);
+  }
+  const mb = (files.reduce((a,f) => a + f.size, 0) / 1048576).toFixed(0);
+  const z = document.createElement('button'); z.textContent = `Make ZIP (${mb} MB)`;
+  if (!canShare) z.className = 'primary';
+  z.onclick = async () => {
+    z.disabled = true; z.textContent = 'Building ZIP…';
+    try {
+      const zip = new ExifCore.Zip(); for (const f of files) await zip.add(f.name, f);
+      if (zipUrl) URL.revokeObjectURL(zipUrl); zipUrl = URL.createObjectURL(zip.finish());
+      const a = document.createElement('a'); a.className = 'button' + (canShare ? '' : ' primary');
+      a.href = zipUrl; a.download = `${($('#folderLabel').dataset.name || 'scans')}-exif.zip`; a.textContent = 'Download ZIP';
+      z.replaceWith(a);
+    } catch(e) { z.disabled = false; z.textContent = 'Make ZIP'; alert(e.message); }
+  };
+  bar.appendChild(z);
+  $('#summary').appendChild(bar);
+}
+
+// ---------- opening ----------
+const hasFSA = 'showDirectoryPicker' in window;
+const touch = matchMedia('(pointer:coarse)').matches;
+if (!hasFSA) {
+  $('#openBtn').textContent = 'Choose scans';
+  $('#folderBtn').hidden = touch;
+  $('#emptyTitle').textContent = 'Choose your scans';
+  if (touch) $('#zipNote').textContent = 'When it’s done, save the tagged scans straight to Photos, or as a ZIP to Files.';
+  $('#emptyText').textContent = touch ? 'Pick them with “Choose File(s)” to come from the Files app — the Photo Library can alter metadata.' : 'or drop a folder here.';
+}
+$('#openBtn').onclick = async () => {
+  if (hasFSA) {
+    try { const h = await showDirectoryPicker({ mode: 'readwrite', id: 'rollstamp' }); await loadDir(h); }
+    catch(e) { if (e.name !== 'AbortError') alert(e.message); }
+  } else $('#filesInput').click();
+};
+$('#folderBtn').onclick = () => $('#dirInput').click();
+$('#filesInput').onchange = e => {
+  const files = [...e.target.files].filter(f => kindOf(f.name) && !f.name.startsWith('.'));
+  $('#folderLabel').dataset.name = 'scans';
+  setRows(files.map(f => ({ name: f.name, file: f })), 'selected', null);
+  e.target.value = '';
+};
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+$('#dirInput').onchange = e => {
+  const files = [...e.target.files].filter(f => kindOf(f.name) && !f.name.startsWith('.'));
+  const top = (e.target.files[0] && e.target.files[0].webkitRelativePath || '').split('/')[0] || 'scans';
+  $('#folderLabel').dataset.name = top;
+  setRows(files.map(f => ({ name: f.name, file: f })), top, null);
+  e.target.value = '';
+};
+document.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drag'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drag'); });
+document.addEventListener('drop', async e => {
+  e.preventDefault(); document.body.classList.remove('drag');
+  if (busy) return;
+  const items = [...e.dataTransfer.items].filter(it => it.kind === 'file');
+  const handles = items.map(it => it.getAsFileSystemHandle ? it.getAsFileSystemHandle() : null);
+  const entries = items.map(it => it.webkitGetAsEntry ? it.webkitGetAsEntry() : null);
+  let files = [...e.dataTransfer.files];
+  if (handles[0]) {
+    try {
+      const h = await handles[0];
+      if (h && h.kind === 'directory') {
+        if ((await h.requestPermission({ mode: 'readwrite' })) === 'granted') { await loadDir(h); return; }
+      }
+    } catch(err) {}
+  }
+  let label = 'dropped files';
+  const dirEntry = entries.find(en => en && en.isDirectory);
+  if (dirEntry) { // Safari / Firefox folder drop
+    label = dirEntry.name; files = [];
+    const reader = dirEntry.createReader();
+    const readAll = () => new Promise((res, rej) => reader.readEntries(res, rej));
+    for (let batch = await readAll(); batch.length; batch = await readAll())
+      for (const en of batch) if (en.isFile && kindOf(en.name)) files.push(await new Promise((res, rej) => en.file(res, rej)));
+  }
+  const list = files.filter(f => kindOf(f.name) && !f.name.startsWith('.'));
+  $('#folderLabel').dataset.name = dirEntry ? dirEntry.name : 'scans';
+  setRows(list.map(f => ({ name: f.name, file: f })), list.length || dirEntry ? label : '', null);
+});
+changed();
+})();
+</script>
+</body>
+</html>
