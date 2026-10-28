@@ -32,6 +32,10 @@ header{display:flex;align-items:baseline;gap:14px;padding:18px 24px 14px;flex-wr
 header h1{margin:0;font-size:22px;letter-spacing:-.01em;font-weight:650}
 header h1 span{color:var(--accent)}
 header p{margin:0;color:var(--muted)}
+nav.tools{margin-left:auto;display:flex;gap:4px;font-size:13px}
+nav.tools a{color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:6px;border:1px solid transparent}
+nav.tools a[aria-current]{color:var(--ink);border-color:var(--line);background:var(--panel)}
+@media (max-width:640px){nav.tools{margin-left:0;width:100%}}
 main{display:grid;grid-template-columns:360px minmax(0,1fr);gap:20px;padding:0 24px 32px;align-items:start}
 @media (max-width:900px){main{grid-template-columns:minmax(0,1fr);padding:0 16px 24px}}
 aside,section.files{background:var(--panel);border:1px solid var(--line);border-radius:10px}
@@ -114,6 +118,7 @@ a.button{display:inline-block;text-decoration:none;font-size:13px;border-radius:
 <header>
   <h1>Roll<span>·</span>Stamp</h1>
   <p>EXIF for film scans — date, gear and stock across a whole roll.</p>
+  <nav class="tools"><a href="./" aria-current="page">Roll Stamp</a><a href="contact.html">Contact Sheet</a></nav>
 </header>
 
 <main>

@@ -27,6 +27,14 @@ JPEG: the Exif segment is rebuilt and the compressed image data is copied byte f
 
 TIFF: a new tag directory is appended and the header is repointed, so the strips are never moved.
 
+## Contact Sheet
+
+`contact.html` lays a roll out on one page as film strips (35mm with perforations and edge numbers, half frame, XPan, or 120 in 6×4.5 / 6×6 / 6×7 / 6×9) or as a clean grid.
+
+- The header is filled from the EXIF that Roll Stamp writes: film stock, camera, lens and date.
+- Tap frames to circle picks in red grease pencil.
+- Export a JPEG (Save to Photos on a phone) or a print-ready PDF at A4, A3, Letter or 8×10. Instagram 4:5 and square sizes export as JPEG only.
+
 ## Development
 
-Edit `src/app.html` (UI) and `src/core.js` (EXIF reader/writer), then run `python3 build.py` to regenerate the single-file `index.html`.
+Edit `src/app.html` (Roll Stamp UI), `src/contact.html` (contact sheet) and `src/core.js` (EXIF reader/writer, shared by both pages). Then run `python3 build.py` to regenerate the single-file `index.html` and `contact.html`.

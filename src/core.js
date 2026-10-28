@@ -225,12 +225,26 @@ const ExifCore = (() => {
 
   // ---------- reading info for the preview ----------
   const ascii = e => e && e.bytes ? td.decode(e.bytes).replace(/\0[\s\S]*$/, '').trim() : '';
+  function userCommentText(e, le) {
+    if (!e || !e.bytes || e.bytes.length < 8) return '';
+    const head = td.decode(e.bytes.subarray(0, 8)).replace(/\0/g, ''), body = e.bytes.subarray(8);
+    if (head === 'UNICODE') {
+      const dv = new DataView(body.buffer, body.byteOffset, body.byteLength); let s = '';
+      for (let i = 0; i + 1 < body.length; i += 2) s += String.fromCharCode(dv.getUint16(i, le));
+      return s.replace(/\0[\s\S]*$/, '').trim();
+    }
+    return td.decode(body).replace(/\0[\s\S]*$/, '').trim();
+  }
   function infoFrom(t, hasXmp) {
     const exif = t.ifd0.get(0x8769) && t.ifd0.get(0x8769).sub || new Map();
+    const isoE = exif.get(0x8827);
     return {
       date: ascii(exif.get(0x9003)) || ascii(t.ifd0.get(0x0132)),
       make: ascii(t.ifd0.get(0x010F)),
       model: ascii(t.ifd0.get(0x0110)),
+      lens: ascii(exif.get(0xA434)),
+      film: userCommentText(exif.get(0x9286), t.le) || ascii(t.ifd0.get(0x010E)),
+      iso: isoE && isoE.bytes && isoE.bytes.length >= 2 ? new DataView(isoE.bytes.buffer, isoE.bytes.byteOffset, 2).getUint16(0, t.le) : 0,
       hasXmp: hasXmp || t.ifd0.has(0x02BC),
     };
   }

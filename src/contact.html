@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Contact Sheet</title>
+<meta name="theme-color" content="#1c1a17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Roll Stamp">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#f3f0e8; --panel:#fbfaf6; --ink:#1c1a17; --muted:#6e685e; --line:#ddd5c6; --field:#fff;
+  --accent:#b5321e; --accent-ink:#fff; --ok:#2e6b3a; --err:#b5321e; --stage:#e6e1d6;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#121110; --panel:#1b1916; --ink:#ebe5d8; --muted:#9a9284; --line:#322e28; --field:#23201c;
+        --accent:#e2563c; --accent-ink:#140e0b; --ok:#7dc48b; --err:#ff7b64; --stage:#0c0b0a;}
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans);min-height:100vh}
+.strip{height:14px;background:repeating-linear-gradient(90deg, transparent 0 10px, var(--bg) 10px 18px) center/100% 6px no-repeat, var(--ink)}
+header{display:flex;align-items:baseline;gap:14px;padding:18px 24px 14px;flex-wrap:wrap}
+header h1{margin:0;font-size:22px;letter-spacing:-.01em;font-weight:650}
+header h1 span{color:var(--accent)}
+header p{margin:0;color:var(--muted)}
+nav.tools{margin-left:auto;display:flex;gap:4px;font-size:13px}
+nav.tools a{color:var(--muted);text-decoration:none;padding:5px 10px;border-radius:6px;border:1px solid transparent}
+nav.tools a[aria-current]{color:var(--ink);border-color:var(--line);background:var(--panel)}
+main{display:grid;grid-template-columns:320px minmax(0,1fr);gap:20px;padding:0 24px 32px;align-items:start}
+aside,section.sheet{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+aside{padding:6px 16px 16px;position:sticky;top:12px}
+fieldset{border:0;border-top:1px solid var(--line);margin:0;padding:12px 0 8px;min-width:0}
+fieldset:first-of-type{border-top:0}
+legend{float:left;width:100%;margin-bottom:6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:0 0 4px}
+.grid{clear:both;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px}
+.grid .full{grid-column:1/-1}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+label.check{flex-direction:row;align-items:flex-start;gap:8px;color:var(--ink);font-size:13px}
+label.check input{margin-top:2px}
+input[type=text],input[type=number],select{font:inherit;font-size:14px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:7px 9px;width:100%;min-width:0}
+input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 45%,transparent);border-color:var(--accent)}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg label{flex:1;flex-direction:row;justify-content:center;align-items:center;color:var(--ink);font-size:13px;padding:7px 6px;cursor:pointer;background:var(--field)}
+.seg label+label{border-left:1px solid var(--line)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--ink);color:var(--bg)}
+button,a.button{font:inherit;font-size:13px;border-radius:6px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:7px 12px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+button:hover{border-color:var(--muted)}
+.primary{background:var(--accent)!important;color:var(--accent-ink)!important;border-color:var(--accent)!important;font-weight:600;padding:9px 18px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line)}
+.toolbar .label{font-family:var(--mono);font-size:13px}
+.toolbar .spacer{flex:1}
+.note{padding:9px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}
+.exports{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.stage{background:var(--stage);padding:18px;display:flex;justify-content:center;border-radius:0 0 10px 10px}
+canvas#sheet{display:block;max-width:100%;height:auto;box-shadow:0 1px 2px rgba(0,0,0,.18),0 8px 28px rgba(0,0,0,.14);cursor:pointer;touch-action:manipulation}
+.empty{padding:56px 24px;text-align:center;color:var(--muted)}
+.empty .drop{border:1.5px dashed var(--line);border-radius:10px;padding:40px 20px;margin:0 auto;max-width:520px}
+.empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+body.drag .empty .drop{border-color:var(--accent);color:var(--ink)}
+.progress{height:3px} .progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+.mobilebar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:5;gap:12px;align-items:center;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}
+.mobilebar span{font-family:var(--mono);font-size:12px;color:var(--muted)} .mobilebar button{flex:1}
+@media (pointer:coarse){input[type=text],input[type=number],select{font-size:16px}}
+@media (max-width:900px){main{grid-template-columns:minmax(0,1fr);padding:0 16px 24px} aside{position:static} section.sheet{order:-1}}
+@media (max-width:640px){
+  header{padding:14px 16px 12px} nav.tools{margin-left:0;width:100%} .stage{padding:10px}
+  #exportBtn,.toolbar .spacer{display:none} body.has-rows .mobilebar{display:flex} body.has-rows{padding-bottom:84px}
+}
+footer{color:var(--muted);font-size:12px;padding:0 24px 28px;max-width:900px}
+</style>
+</head>
+<body>
+<div class="strip" aria-hidden="true"></div>
+<header>
+  <h1>Contact<span>·</span>Sheet</h1>
+  <p>A whole roll on one page — tap frames to mark your picks.</p>
+  <nav class="tools"><a href="./">Roll Stamp</a><a href="contact.html" aria-current="page">Contact Sheet</a></nav>
+</header>
+
+<main>
+<aside>
+  <fieldset>
+    <legend>Sheet</legend>
+    <div class="grid">
+      <label class="full">Size<select id="paper">
+        <option value="a4">A4</option><option value="a3">A3</option><option value="letter">US Letter</option><option value="8x10">8 × 10 in</option>
+        <option value="ig45">Instagram 4:5</option><option value="ig11">Instagram square</option>
+      </select></label>
+      <div class="seg full" role="radiogroup" aria-label="Orientation">
+        <label><input type="radio" name="orient" value="auto" checked>Auto</label>
+        <label><input type="radio" name="orient" value="portrait">Portrait</label>
+        <label><input type="radio" name="orient" value="landscape">Landscape</label>
+      </div>
+      <div class="seg full" role="radiogroup" aria-label="Style">
+        <label><input type="radio" name="style" value="film" checked>Film strips</label>
+        <label><input type="radio" name="style" value="clean">Clean grid</label>
+      </div>
+      <div class="seg full" role="radiogroup" aria-label="Paper tone">
+        <label><input type="radio" name="tone" value="light" checked>White paper</label>
+        <label><input type="radio" name="tone" value="dark">Black</label>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Frames</legend>
+    <div class="grid">
+      <label class="full">Format<select id="format"></select></label>
+      <label>Frames per strip<select id="cols"><option value="auto">Auto</option></select></label>
+      <label>First frame no.<input type="number" id="firstNo" value="1" min="0" step="1"></label>
+      <label class="check full"><input type="checkbox" id="rotate" checked> Turn frames to sit in the strip, as on the negative</label>
+      <label class="check full"><input type="checkbox" id="cover"> Crop scans to fill each frame</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Labels</legend>
+    <div class="grid">
+      <label class="full">Title<input type="text" id="title" placeholder="e.g. Tokyo — Roll 12"></label>
+      <label class="full">Details<input type="text" id="details" placeholder="Filled from the scans' EXIF"></label>
+      <label class="full">Edge print<input type="text" id="edge" placeholder="e.g. HP5 PLUS 400"></label>
+      <label class="check full"><input type="checkbox" id="names"> Show filenames (clean grid)</label>
+    </div>
+  </fieldset>
+</aside>
+
+<section class="sheet">
+  <div class="toolbar">
+    <button id="openBtn">Choose scans</button>
+    <button id="folderBtn" hidden>Whole folder</button>
+    <span class="label" id="label"></span>
+    <span class="spacer"></span>
+    <button id="clearPicks" hidden>Clear picks</button>
+    <button class="primary" id="exportBtn" disabled>Export</button>
+  </div>
+  <div class="progress"><i id="bar"></i></div>
+  <div class="note" id="note" hidden>Tap a frame to circle it as a pick. Tap again to clear.</div>
+  <div class="exports" id="exports" hidden></div>
+  <div id="emptyState" class="empty"><div class="drop">
+    <strong>Choose a roll of scans</strong>
+    <span id="emptyText">or drop a folder here.</span> Frames are laid out in filename order — the same order Roll Stamp numbers them.
+  </div></div>
+  <div class="stage" id="stage" hidden><canvas id="sheet" width="10" height="10" aria-label="Contact sheet preview"></canvas></div>
+</section>
+</main>
+<footer>Everything runs in this page; your scans never leave the device. PDF exports are sized to the paper for printing; Instagram sizes export as JPEG only.</footer>
+
+<input type="file" id="filesInput" multiple accept="image/jpeg,image/png,image/tiff,.jpg,.jpeg,.png,.tif,.tiff" hidden>
+<input type="file" id="dirInput" webkitdirectory multiple hidden>
+<div class="mobilebar"><span id="mbCount"></span><button class="primary" id="mbExport" disabled>Export</button></div>
+
+<script>
+/*CORE*/
+</script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+
+// ---------- reference data ----------
+// along = frame length along the film, across = frame height across it (mm).
+// rebate = film edge each side, as a fraction of frame height; gap = space between frames, fraction of frame length.
+const FORMATS = {
+  '35':   { label:'35mm (24×36)',        along:36,   across:24, perfs:true,  rebate:0.23, gap:0.055, cols:6 },
+  'half': { label:'Half frame (18×24)',  along:18,   across:24, perfs:true,  rebate:0.23, gap:0.11,  cols:8 },
+  'xpan': { label:'XPan panorama',       along:65,   across:24, perfs:true,  rebate:0.23, gap:0.03,  cols:3 },
+  '645':  { label:'120 — 6×4.5',         along:41.5, across:56, perfs:false, rebate:0.075, gap:0.07, cols:4 },
+  '66':   { label:'120 — 6×6',           along:56,   across:56, perfs:false, rebate:0.075, gap:0.06, cols:3 },
+  '67':   { label:'120 — 6×7',           along:69.5, across:56, perfs:false, rebate:0.075, gap:0.05, cols:3 },
+  '69':   { label:'120 — 6×9',           along:84,   across:56, perfs:false, rebate:0.075, gap:0.04, cols:2 },
+};
+const PAPERS = { a4:[210,297], a3:[297,420], letter:[215.9,279.4], '8x10':[203.2,254], ig45:{px:[2160,2700]}, ig11:{px:[2160,2160]} };
+const MAX_PIXELS = 16e6; // iOS Safari refuses canvases much above 16.7 MP
+$('#format').innerHTML = '<option value="auto">Auto (from the scans)</option>' + Object.entries(FORMATS).map(([k,f]) => `<option value="${k}">${f.label}</option>`).join('');
+$('#cols').innerHTML += Array.from({length:11}, (_,i) => i+2).map(n => `<option value="${n}">${n}</option>`).join('');
+
+// ---------- settings ----------
+const KEYS = ['paper','format','cols','rotate','cover','names'];
+const RADIOS = ['orient','style','tone'];
+const store = {
+  get(){ try { return JSON.parse(localStorage.getItem('contactsheet.settings')) || {}; } catch(e){ return {}; } },
+  set(v){ try { localStorage.setItem('contactsheet.settings', JSON.stringify(v)); } catch(e){} }
+};
+const radio = n => document.querySelector(`input[name=${n}]:checked`).value;
+function save(){
+  const o = {};
+  KEYS.forEach(k => { const el = $('#'+k); o[k] = el.type === 'checkbox' ? el.checked : el.value; });
+  RADIOS.forEach(n => o[n] = radio(n));
+  store.set(o);
+}
+(function restore(){
+  const o = store.get();
+  KEYS.forEach(k => { if (!(k in o)) return; const el = $('#'+k); if (el.type === 'checkbox') el.checked = !!o[k]; else el.value = o[k]; });
+  RADIOS.forEach(n => { const r = o[n] && document.querySelector(`input[name=${n}][value="${o[n]}"]`); if (r) r.checked = true; });
+})();
+
+// ---------- state ----------
+let frames = [];          // {name, file, bm, w, h}
+let picks = new Set();
+let cells = [];           // last layout, for tap hit-testing
+let auto = { details:'', edge:'' };
+let loadToken = 0;
+const canvas = $('#sheet'), g = canvas.getContext('2d');
+const kindOk = n => /\.(jpe?g|png|tiff?)$/i.test(n) && !n.startsWith('.');
+
+// ---------- loading ----------
+async function decodeSmall(file, max){
+  // Decode one scan and keep only a reduced bitmap; full-size decodes are released straight away.
+  let bm;
+  try { bm = await createImageBitmap(file, { resizeWidth: max, resizeQuality: 'medium' }); }
+  catch(e) {
+    const u = URL.createObjectURL(file), img = new Image(); img.src = u;
+    try { await img.decode(); bm = await createImageBitmap(img); } finally { img.src = ''; URL.revokeObjectURL(u); }
+  }
+  const long = Math.max(bm.width, bm.height);
+  if (long > max * 1.15) { // resize hint ignored (or portrait): scale down ourselves
+    const s = max / long, c = document.createElement('canvas');
+    c.width = Math.round(bm.width * s); c.height = Math.round(bm.height * s);
+    c.getContext('2d').drawImage(bm, 0, 0, c.width, c.height); bm.close();
+    bm = await createImageBitmap(c); c.width = c.height = 0;
+  }
+  return bm;
+}
+async function loadFiles(list, label){
+  const token = ++loadToken;
+  frames.forEach(f => f.bm && f.bm.close());
+  frames = list.filter(f => kindOk(f.name)).sort((a,b) => a.name.localeCompare(b.name, undefined, {numeric:true, sensitivity:'base'}))
+               .map(f => ({ name: f.name, file: f, bm: null }));
+  picks = new Set(); $('#exports').hidden = true; $('#exports').innerHTML = '';
+  $('#label').textContent = frames.length ? `${label} · ${frames.length} frame${frames.length===1?'':'s'}` : `${label} · no images`;
+  const has = frames.length > 0;
+  document.body.classList.toggle('has-rows', has);
+  $('#emptyState').hidden = has; $('#stage').hidden = !has; $('#note').hidden = !has;
+  $('#mbCount').textContent = has ? `${frames.length} frames` : '';
+  if (!has) { updateButtons(); return; }
+
+  // header text from the first frame that has EXIF; clear the last roll's auto-filled text first
+  if ($('#details').value === auto.details) $('#details').value = '';
+  if ($('#edge').value === auto.edge) $('#edge').value = '';
+  auto = { details:'', edge:'' };
+  for (const f of frames.slice(0, 6)) {
+    try {
+      const kind = /\.jpe?g$/i.test(f.name) ? 'jpeg' : /\.tiff?$/i.test(f.name) ? 'tiff' : null; if (!kind) continue;
+      const info = ExifCore.readInfo(new Uint8Array(await f.file.slice(0, 1 << 20).arrayBuffer()), kind);
+      if (!info.film && !info.model && !info.date) continue;
+      const date = info.date ? info.date.slice(0,10).replace(/:/g, '-') : '';
+      const details = [info.film, info.model, info.lens, date].filter(Boolean).join('  ·  ');
+      const edge = (info.film || '').toUpperCase();
+      if (!$('#details').value) $('#details').value = details;
+      if (!$('#edge').value) $('#edge').value = edge;
+      auto = { details, edge };
+      break;
+    } catch(e) {}
+  }
+
+  const max = matchMedia('(pointer:coarse)').matches ? 900 : 1200;
+  for (let i = 0; i < frames.length; i++) {
+    if (token !== loadToken) return;
+    try { const bm = await decodeSmall(frames[i].file, max); frames[i].bm = bm; frames[i].w = bm.width; frames[i].h = bm.height; }
+    catch(e) { frames[i].error = true; }
+    $('#bar').style.width = `${Math.round((i+1)/frames.length*100)}%`;
+    if (i === 0 || i % 4 === 3 || i === frames.length - 1) render();
+  }
+  setTimeout(() => { $('#bar').style.width = '0'; }, 600);
+  updateButtons();
+}
+
+// ---------- layout ----------
+function sheetSize(orient = radio('orient')){
+  const p = PAPERS[$('#paper').value] || PAPERS.a4, land = orient === 'landscape';
+  let w, h, mm = null;
+  if (p.px) [w, h] = p.px;
+  else { mm = land ? [p[1], p[0]] : [p[0], p[1]]; w = mm[0] / 25.4 * 300; h = mm[1] / 25.4 * 300; }
+  if (p.px && land && w !== h) [w, h] = [h, w];
+  const s = Math.min(1, Math.sqrt(MAX_PIXELS / (w * h)));
+  return { W: Math.round(w * s), H: Math.round(h * s), mm };
+}
+// Auto orientation: whichever way round gives the larger frames (Instagram 4:5 stays portrait).
+function chooseSheet(n){
+  const o = radio('orient');
+  const opts = o !== 'auto' ? [o] : $('#paper').value === 'ig45' || $('#paper').value === 'ig11' ? ['portrait'] : ['portrait', 'landscape'];
+  let best = null;
+  for (const orient of opts) {
+    const sz = sheetSize(orient), L = layout(sz.W, sz.H, n), score = L.cw / Math.min(sz.W, sz.H);
+    if (!best || score > best.score * 1.01) best = { ...sz, L, score };
+  }
+  return best;
+}
+function detectFormat(){
+  const rs = frames.filter(f => f.w).map(f => Math.max(f.w, f.h) / Math.min(f.w, f.h)).sort((a,b) => a-b);
+  if (!rs.length) return '35';
+  const r = rs[Math.floor(rs.length / 2)];
+  return r < 1.12 ? '66' : r < 1.29 ? '67' : r < 1.42 ? '645' : r < 2.1 ? '35' : 'xpan';
+}
+function layout(W, H, n){
+  const fk = $('#format').value === 'auto' ? detectFormat() : $('#format').value;
+  const F = FORMATS[fk], film = radio('style') === 'film', aspect = F.along / F.across;
+  const u = Math.min(W, H) / 1000;
+  const t = $('#title').value.trim(), d = $('#details').value.trim();
+  const margin = 52 * u, headerH = t ? (d ? 80 * u : 56 * u) : (d ? 46 * u : 0);
+  const availW = W - 2 * margin, availH = H - 2 * margin - headerH;
+  const gap = film ? F.gap : 0.045, end = film ? F.gap : 0, rb = film ? F.rebate : 0;
+  const cap = film ? 0 : 0.17, sg = film ? 0.045 : 0.03;
+  const fit = cols => {
+    const rows = Math.ceil(n / cols);
+    let cw = availW / (cols + (cols - 1) * gap + 2 * end);
+    const per = rows * (1 / aspect) * (1 + 2 * rb + cap) + (rows - 1) * sg;
+    if (cw * per > availH) cw = availH / per;
+    return { cols, rows, cw };
+  };
+  let best;
+  if ($('#cols').value !== 'auto') best = fit(+$('#cols').value);
+  else { // biggest frames, but penalise part-empty last strips (a lab cuts 36 frames into 6 × 6)
+    const score = t => t.cw * (1 - 0.15 * ((t.rows * t.cols - n) / t.cols));
+    for (let c = 2; c <= 12; c++) { const t = fit(c); if (!best || score(t) > score(best) * 1.005) best = t; }
+  }
+  const { cols, rows, cw } = best, ch = cw / aspect;
+  const rowH = ch * (1 + 2 * rb + cap), stripGap = sg * cw;
+  const gridW = cols * cw + (cols - 1) * gap * cw + 2 * end * cw, gridH = rows * rowH + (rows - 1) * stripGap;
+  const x0 = margin + (availW - gridW) / 2, y0 = margin + headerH;
+  const strips = [], out = [];
+  for (let r = 0; r < rows; r++) {
+    const k = Math.min(cols, n - r * cols), sy = y0 + r * (rowH + stripGap);
+    strips.push({ x: x0, y: sy, w: k * cw + (k - 1) * gap * cw + 2 * end * cw, h: ch * (1 + 2 * rb), first: r * cols, k });
+    for (let c = 0; c < k; c++) out.push({ i: r * cols + c, x: x0 + end * cw + c * (cw + gap * cw), y: sy + rb * ch, w: cw, h: ch });
+  }
+  return { F, fk, film, u, margin, headerH, strips, cells: out, cw, ch, rebH: rb * ch, gap: gap * cw };
+}
+
+// ---------- drawing ----------
+function rng(seed){ return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }; }
+function drawFrame(f, c){
+  const bm = f.bm; if (!bm) return;
+  const rotate = $('#rotate').checked, cover = $('#cover').checked;
+  const imgLand = bm.width >= bm.height, cellLand = c.w >= c.h;
+  const square = Math.abs(bm.width / bm.height - 1) < 0.06 || Math.abs(c.w / c.h - 1) < 0.06;
+  const rot = rotate && !square && imgLand !== cellLand;
+  const sw = rot ? bm.height : bm.width, sh = rot ? bm.width : bm.height;
+  const s = cover ? Math.max(c.w / sw, c.h / sh) : Math.min(c.w / sw, c.h / sh);
+  g.save();
+  g.beginPath(); g.rect(c.x, c.y, c.w, c.h); g.clip();
+  g.translate(c.x + c.w / 2, c.y + c.h / 2); if (rot) g.rotate(-Math.PI / 2);
+  g.drawImage(bm, -bm.width * s / 2, -bm.height * s / 2, bm.width * s, bm.height * s);
+  g.restore();
+}
+function grease(c, i, u){
+  const r = rng(i * 97 + 13), pad = Math.min(c.w, c.h) * 0.07, j = () => (r() - 0.5) * Math.min(c.w, c.h) * 0.05;
+  const x1 = c.x - pad, y1 = c.y - pad, x2 = c.x + c.w + pad, y2 = c.y + c.h + pad, rad = Math.min(c.w, c.h) * 0.16;
+  g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+  for (let pass = 0; pass < 2; pass++) {
+    g.strokeStyle = pass ? 'rgba(214,38,42,.55)' : 'rgba(214,38,42,.92)';
+    g.lineWidth = Math.max(3, (pass ? 3.2 : 5.5) * u);
+    g.beginPath();
+    g.moveTo(x1 + rad + j(), y1 + j());
+    g.lineTo(x2 - rad + j(), y1 + j()); g.quadraticCurveTo(x2 + j(), y1 + j(), x2 + j(), y1 + rad + j());
+    g.lineTo(x2 + j(), y2 - rad + j()); g.quadraticCurveTo(x2 + j(), y2 + j(), x2 - rad + j(), y2 + j());
+    g.lineTo(x1 + rad + j(), y2 + j()); g.quadraticCurveTo(x1 + j(), y2 + j(), x1 + j(), y2 - rad + j());
+    g.lineTo(x1 + j(), y1 + rad + j()); g.quadraticCurveTo(x1 + j(), y1 + j(), x1 + rad * 1.6 + j(), y1 - pad * 0.15 + j());
+    g.stroke();
+  }
+  g.restore();
+}
+function render(){
+  if (!frames.length) return;
+  const sheet = chooseSheet(frames.length), { W, H, L } = sheet;
+  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
+  cells = L.cells; lastMM = sheet.mm;
+  const dark = radio('tone') === 'dark', u = L.u;
+  const paper = dark ? '#121212' : '#ffffff', ink = dark ? '#ece8df' : '#161513', muted = dark ? '#9b968c' : '#6d6960';
+  const base = L.film ? (dark ? '#000000' : '#0c0c0b') : (dark ? '#1d1d1c' : '#efede8');
+  g.fillStyle = paper; g.fillRect(0, 0, W, H);
+
+  // header
+  const title = $('#title').value.trim(), details = $('#details').value.trim();
+  if (L.headerH) {
+    const sans = '-apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif';
+    g.textBaseline = 'alphabetic';
+    g.fillStyle = muted; g.font = `${13 * u}px ui-monospace, Menlo, monospace`; g.textAlign = 'right';
+    const countY = L.margin + (title ? 30 : 16) * u, count = `${frames.length} frames`;
+    g.fillText(count, W - L.margin, countY); g.textAlign = 'left';
+    const maxW = W - 2 * L.margin - g.measureText(count).width - 24 * u;
+    const fitText = (text, weight, size, color, y) => { // shrink long lines to fit beside the frame count
+      let fs = size; g.font = `${weight} ${fs}px ${sans}`;
+      while (fs > size * 0.55 && g.measureText(text).width > maxW) { fs *= 0.94; g.font = `${weight} ${fs}px ${sans}`; }
+      g.fillStyle = color; g.fillText(text, L.margin, y);
+    };
+    if (title) fitText(title, 600, 30 * u, ink, L.margin + 30 * u);
+    if (details) fitText(details, 400, 15 * u, muted, L.margin + (title ? 56 : 16) * u);
+  }
+
+  // strips / cells background
+  const first = Math.max(0, parseInt($('#firstNo').value, 10) || 0);
+  const edge = $('#edge').value.trim().toUpperCase();
+  const mono = 'ui-monospace, Menlo, "DejaVu Sans Mono", monospace';
+  for (const s of L.strips) {
+    if (L.film) { g.fillStyle = base; g.fillRect(s.x, s.y, s.w, s.h); }
+    if (L.film && L.F.perfs) {
+      const pitch = (L.cw + L.gap) / 8, hw = pitch * 0.59, hh = L.rebH * 0.36, r = hh * 0.28;
+      g.fillStyle = dark ? '#202020' : '#262624';
+      for (let x = s.x + pitch * 0.5; x + hw <= s.x + s.w - pitch * 0.2; x += pitch)
+        for (const cy of [s.y + L.rebH * 0.545, s.y + s.h - L.rebH * 0.545]) { g.beginPath(); g.roundRect(x, cy - hh / 2, hw, hh, r); g.fill(); }
+    }
+    if (L.film) { // edge print
+      g.fillStyle = 'rgba(214,206,190,.82)'; g.textBaseline = 'middle';
+      const band = L.F.perfs ? L.rebH * 0.19 : L.rebH * 0.5, fs = L.F.perfs ? L.rebH * 0.24 : L.rebH * 0.55;
+      g.font = `700 ${fs}px ${mono}`;
+      for (let k = 0; k < s.k; k++) {
+        const fx = s.x + L.gap + k * (L.cw + L.gap), n = first + s.first + k;
+        g.fillText(String(n), fx + L.cw * 0.06, s.y + s.h - band);
+        if (L.F.perfs) g.fillText(`▸${n}A`, fx + L.cw * 0.56, s.y + s.h - band);
+        if (edge && k % 2 === 0) g.fillText(edge, fx + L.cw * 0.18, s.y + band);
+      }
+      g.textBaseline = 'alphabetic';
+    }
+  }
+  for (const c of L.cells) {
+    const f = frames[c.i];
+    g.fillStyle = base; g.fillRect(c.x, c.y, c.w, c.h);
+    if (f && f.bm) drawFrame(f, c);
+    if (!L.film) {
+      const cy = c.y + c.h + L.ch * 0.1;
+      g.textBaseline = 'middle'; g.fillStyle = ink; g.font = `600 ${Math.max(9, L.ch * 0.075)}px ${mono}`;
+      g.fillText(String(first + c.i), c.x, cy);
+      if ($('#names').checked && f) { g.fillStyle = muted; g.textAlign = 'right'; g.font = `${Math.max(8, L.ch * 0.06)}px ${mono}`; g.fillText(f.name, c.x + c.w, cy); g.textAlign = 'left'; }
+      g.textBaseline = 'alphabetic';
+    }
+  }
+  for (const c of L.cells) if (picks.has(c.i)) grease(c, c.i, u);
+  $('#clearPicks').hidden = !picks.size;
+}
+let rq = 0;
+function rerender(){ cancelAnimationFrame(rq); rq = requestAnimationFrame(() => { render(); save(); }); $('#exports').hidden = true; }
+
+// ---------- interactions ----------
+document.querySelectorAll('aside input, aside select').forEach(el => el.addEventListener('input', rerender));
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect(), x = (e.clientX - r.left) * canvas.width / r.width, y = (e.clientY - r.top) * canvas.height / r.height;
+  const c = cells.find(c => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h);
+  if (!c) return;
+  picks.has(c.i) ? picks.delete(c.i) : picks.add(c.i);
+  rerender();
+});
+$('#clearPicks').onclick = () => { picks.clear(); rerender(); };
+
+// ---------- export ----------
+function pdfFrom(jpeg, pw, ph, mm){
+  const te = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = x => { const b = typeof x === 'string' ? te.encode(x) : x; parts.push(b); len += b.length; };
+  const wPt = (mm[0] / 25.4 * 72).toFixed(2), hPt = (mm[1] / 25.4 * 72).toFixed(2);
+  const obj = (n, body) => { offs[n] = len; push(`${n} 0 obj\n${body}\nendobj\n`); };
+  push('%PDF-1.4\n%âãÏÓ\n');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${wPt} ${hPt}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`);
+  offs[4] = len;
+  push(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pw} /Height ${ph} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
+  push(jpeg); push('\nendstream\nendobj\n');
+  const content = `q ${wPt} 0 0 ${hPt} 0 0 cm /Im0 Do Q`;
+  obj(5, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  const xref = len;
+  push(`xref\n0 6\n0000000000 65535 f \n` + [1,2,3,4,5].map(n => String(offs[n]).padStart(10, '0') + ' 00000 n \n').join(''));
+  push(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+const urls = []; let lastMM = null;
+async function exportSheet(){
+  const btns = [$('#exportBtn'), $('#mbExport')]; btns.forEach(b => { b.disabled = true; b.textContent = 'Exporting…'; });
+  try {
+    render();
+    const mm = lastMM;
+    const jpg = await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('Could not encode the sheet')), 'image/jpeg', 0.92));
+    const base = ($('#title').value.trim() || 'contact-sheet').replace(/[\\/:*?"<>|]+/g, '').replace(/\s*[—–]\s*/g, '-').replace(/\s+/g, '-').slice(0, 60) || 'contact-sheet';
+    const file = new File([jpg], `${base}.jpg`, { type: 'image/jpeg' });
+    urls.splice(0).forEach(u => URL.revokeObjectURL(u));
+    const box = $('#exports'); box.innerHTML = ''; box.hidden = false;
+    if (navigator.canShare && navigator.share && navigator.canShare({ files: [file] })) {
+      const b = document.createElement('button'); b.className = 'primary'; b.textContent = 'Save to Photos / Share…';
+      b.onclick = () => navigator.share({ files: [file] }).catch(e => { if (e.name !== 'AbortError') alert(e.message); });
+      box.appendChild(b);
+    }
+    const link = (blob, name, text, primary) => {
+      const a = document.createElement('a'), u = URL.createObjectURL(blob); urls.push(u);
+      a.href = u; a.download = name; a.textContent = text; a.className = 'button' + (primary ? ' primary' : ''); box.appendChild(a);
+    };
+    const shareShown = box.children.length > 0;
+    link(file, file.name, `Download JPEG (${(jpg.size / 1048576).toFixed(1)} MB)`, !shareShown);
+    if (mm) link(pdfFrom(new Uint8Array(await jpg.arrayBuffer()), canvas.width, canvas.height, mm), `${base}.pdf`, 'Download PDF for printing', false);
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  } catch(e) { alert(e.message); }
+  finally { btns.forEach(b => { b.disabled = false; b.textContent = 'Export'; }); }
+}
+$('#exportBtn').onclick = exportSheet; $('#mbExport').onclick = exportSheet;
+function updateButtons(){ const ok = frames.some(f => f.bm); $('#exportBtn').disabled = $('#mbExport').disabled = !ok; }
+
+// ---------- opening ----------
+const hasFSA = 'showDirectoryPicker' in window, touch = matchMedia('(pointer:coarse)').matches;
+if (hasFSA) $('#openBtn').textContent = 'Open folder';
+else {
+  $('#folderBtn').hidden = touch;
+  $('#emptyText').textContent = touch ? 'Pick them with “Choose File(s)” to come from the Files app.' : 'or drop a folder here.';
+}
+$('#openBtn').onclick = async () => {
+  if (!hasFSA) { $('#filesInput').click(); return; }
+  try {
+    const h = await showDirectoryPicker({ mode: 'read', id: 'rollstamp' }), list = [];
+    for await (const [name, fh] of h.entries()) if (fh.kind === 'file' && kindOk(name)) list.push(await fh.getFile());
+    loadFiles(list, h.name);
+  } catch(e) { if (e.name !== 'AbortError') alert(e.message); }
+};
+$('#folderBtn').onclick = () => $('#dirInput').click();
+$('#filesInput').onchange = e => { loadFiles([...e.target.files], 'selected'); e.target.value = ''; };
+$('#dirInput').onchange = e => {
+  const fs = [...e.target.files]; const top = (fs[0] && fs[0].webkitRelativePath || '').split('/')[0] || 'folder';
+  loadFiles(fs.filter(f => f.webkitRelativePath.split('/').length <= 2), top); e.target.value = '';
+};
+document.addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('drag'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('drag'); });
+document.addEventListener('drop', async e => {
+  e.preventDefault(); document.body.classList.remove('drag');
+  const entries = [...e.dataTransfer.items].filter(i => i.kind === 'file').map(i => i.webkitGetAsEntry ? i.webkitGetAsEntry() : null);
+  let files = [...e.dataTransfer.files], label = 'dropped';
+  const dir = entries.find(en => en && en.isDirectory);
+  if (dir) {
+    label = dir.name; files = [];
+    const reader = dir.createReader(), readAll = () => new Promise((res, rej) => reader.readEntries(res, rej));
+    for (let b = await readAll(); b.length; b = await readAll())
+      for (const en of b) if (en.isFile && kindOk(en.name)) files.push(await new Promise((res, rej) => en.file(res, rej)));
+  }
+  loadFiles(files, label);
+});
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
