@@ -13,14 +13,14 @@
 <style>
 :root{
   --bg:#f3f0e8; --panel:#fbfaf6; --ink:#1c1a17; --muted:#6e685e; --line:#ddd5c6; --field:#fff;
-  --accent:#b5321e; --accent-ink:#fff; --ok:#2e6b3a; --warn:#94650a; --err:#b5321e; --row:#f7f4ec;
+  --accent:#b5321e; --accent-ink:#fff; --well:#e4dfd3; --ok:#2e6b3a; --warn:#94650a; --err:#b5321e; --row:#f7f4ec;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark){
   :root{--bg:#121110; --panel:#1b1916; --ink:#ebe5d8; --muted:#9a9284; --line:#322e28; --field:#23201c;
-        --accent:#e2563c; --accent-ink:#140e0b; --ok:#7dc48b; --warn:#e2b552; --err:#ff7b64; --row:#1f1d19;}
+        --accent:#e2563c; --accent-ink:#140e0b; --well:#0b0a09; --ok:#7dc48b; --warn:#e2b552; --err:#ff7b64; --row:#1f1d19;}
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -75,28 +75,32 @@ button.primary:disabled{opacity:.45;cursor:not-allowed}
 .empty .drop{border:1.5px dashed var(--line);border-radius:10px;padding:40px 20px;margin:0 auto;max-width:520px}
 .empty strong{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
 body.drag .empty .drop{border-color:var(--accent);color:var(--ink)}
-.tablewrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
-tr:last-child td{border-bottom:0}
-tr.off td{opacity:.42}
-tr:hover td{background:var(--row)}
-td.th img{width:54px;height:36px;object-fit:cover;border-radius:3px;display:block;background:var(--line)}
-td.th .ph{width:54px;height:36px;border-radius:3px;background:var(--line);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted)}
-td.n{font-family:var(--mono);color:var(--muted);width:1%}
-td.name{font-family:var(--mono);word-break:break-all}
-td.cur{color:var(--muted);font-size:12px}
-td.ts{font-family:var(--mono);white-space:nowrap}
-td.st{white-space:nowrap;font-size:12px}
-td.ts.warn{color:var(--warn)}
-td.act{width:1%;white-space:nowrap;text-align:right;padding-left:0}
-.addbrk{font-size:12px;padding:3px 8px;color:var(--muted);background:transparent;border-color:transparent;opacity:0;transition:opacity .12s}
-tr:hover .addbrk,.addbrk:focus-visible{opacity:1;border-color:var(--line);color:var(--ink)}
-@media (hover:none){.addbrk{opacity:1;border-color:var(--line)}}
-tr.brk td{background:var(--row);border-top:2px solid var(--ink);padding:8px 10px}
-tr.brk:hover td{background:var(--row)}
-tr.brk.first td{border-top:0}
+.gridhead{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}
+.gridhead .spacer{flex:1}
+.gridhead .sm{display:none}
+@media (max-width:640px){.gridhead .lg{display:none}.gridhead .sm{display:inline}}
+.gridhead label.size{flex-direction:row;align-items:center;gap:8px;font-size:12px}
+.gridhead input[type=range]{width:110px;accent-color:var(--accent)}
+.gridhead button{font-size:12px;padding:4px 10px}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--tile,200px),1fr));gap:16px 12px;padding:16px}
+.tile{position:relative;min-width:0}
+.tile .pic{display:block;width:100%;aspect-ratio:3/2;padding:0;border:0;border-radius:4px;background:var(--well);cursor:pointer;position:relative;overflow:hidden}
+.tile .pic:hover{border:0}
+.tile .pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.tile .pic .tf{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);letter-spacing:.08em}
+.tile.off .pic img{opacity:.22}
+.tile.off .pic::after{content:"Skipped";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--ink);background:var(--panel);padding:3px 8px;border-radius:4px}
+.tile figcaption{display:flex;align-items:baseline;gap:8px;padding:5px 2px 0;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.tile figcaption .n{color:var(--ink);font-weight:600}
+.tile figcaption .ts{margin-left:auto}
+.tile figcaption .ts.warn{color:var(--warn)}
+.tile .st{position:absolute;top:6px;left:6px;font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px;background:var(--panel);pointer-events:auto}
+.tile .st:empty{display:none}
+.addbrk{position:absolute;top:6px;right:6px;font-size:12px;padding:3px 9px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--ink);opacity:0;transition:opacity .12s}
+.tile:hover .addbrk,.addbrk:focus-visible{opacity:1}
+@media (hover:none){.addbrk{opacity:.92}}
+.brk{grid-column:1/-1;background:var(--row);border-top:2px solid var(--ink);padding:9px 12px;margin-top:6px;border-radius:0 0 6px 6px}
+.brk.first{border-top:0;margin-top:0;border-radius:6px}
 .brkrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .brkrow .tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-right:2px}
 .brkrow input{font:inherit;font-size:13px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:5px 7px;min-width:0}
@@ -112,10 +116,9 @@ tr.brk.first td{border-top:0}
   .brkrow input[type=date],.brkrow input[type=time]{flex:1 1 40%;width:auto;min-width:130px}
   .brkrow input.off{flex:0 0 88px} .brkrow input.lbl{flex:1 1 40%;max-width:none}
   .brkrow .warnmsg{flex-basis:100%}
-  .addbrk .w{display:none} .addbrk{padding:3px 9px;font-size:15px}
-  td.act{padding-right:8px}
+  .photos{padding:12px;gap:12px 8px}
+  .addbrk .w{display:none} .addbrk{font-size:14px;padding:2px 9px}
 }
-.badge{display:inline-block;font-size:10px;letter-spacing:.06em;border:1px solid var(--warn);color:var(--warn);border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:1px}
 .ok{color:var(--ok)} .err{color:var(--err)} .work{color:var(--muted)}
 .summary{padding:10px 16px;font-size:13px;border-bottom:1px solid var(--line);display:none}
 .summary.show{display:block}
@@ -132,8 +135,7 @@ a.button{display:inline-block;text-decoration:none;font-size:13px;border-radius:
 @media (pointer:coarse){input[type=text],input[type=number],input[type=date],input[type=time],select{font-size:16px}}
 @media (max-width:900px){section.files{order:-1}}
 @media (max-width:640px){
-  header{padding:14px 16px 12px} th.cur,td.cur,th.nm,td.name{display:none} td{padding:6px 5px} td.name{font-size:11px;word-break:normal;overflow-wrap:anywhere}
-  td.ts{font-size:12px} td.th img,td.th .ph{width:40px;height:28px} #zipNote{font-size:12px}
+  header{padding:14px 16px 12px} #zipNote{font-size:12px}
   #writeBtn,.toolbar .spacer{display:none}
   body.has-rows .mobilebar{display:flex} body.has-rows{padding-bottom:84px}
 }
@@ -228,7 +230,7 @@ a.button{display:inline-block;text-decoration:none;font-size:13px;border-radius:
   <div id="list">
     <div class="empty"><div class="drop">
       <strong id="emptyTitle">Open a folder of scans</strong>
-      <span id="emptyText">or drop it here.</span> JPEG and TIFF files are listed in filename order; nothing is written until you press Write.
+      <span id="emptyText">or drop it here.</span> Frames are shown in filename order; nothing is written until you press Write.
     </div></div>
   </div>
 </section>
@@ -379,50 +381,72 @@ function setRows(list, label, handle){
   const saved = breakKey && store.get('breaks:' + breakKey);
   breaks = new Map((saved || []).filter(([n]) => rows.some(r => r.name === n)));
   document.body.classList.toggle('has-rows', rows.length > 0);
-  render(); loadInfos();
+  render();
 }
 const shootOrder = () => $('#reverse').checked ? rows.slice().reverse() : rows;
 function breakRow(r, first){
-  if (first) return `<tr class="brk first" data-start><td colspan="8"><div class="brkrow">
+  if (first) return `<div class="brk first" data-start><div class="brkrow">
       <span class="tag">Roll start</span><span class="static" id="rollStartText"></span>
-      <span class="hint2">set in the panel</span></div></td></tr>`;
+      <span class="hint2">set in the panel</span></div></div>`;
   const b = breaks.get(r.name);
-  return `<tr class="brk" data-brk="${esc(r.name)}"><td colspan="8"><div class="brkrow">
-      <span class="tag">New date</span>
-      <button class="x" title="Remove — these frames continue from the group above" aria-label="Remove date break">✕</button>
+  return `<div class="brk" data-brk="${esc(r.name)}"><div class="brkrow">
+      <span class="tag">New date${b.label ? '' : ''}</span>
+      <button class="x" title="Remove — these frames continue from the group before" aria-label="Remove date break">✕</button>
       <input type="date" class="d" value="${esc(b.date)}" aria-label="Date">
       <input type="time" class="t" step="1" value="${esc(b.time)}" aria-label="Start time">
       <input type="text" class="off" value="${esc(b.offset || '')}" placeholder="${esc($('#offset').value || 'UTC±')}" title="UTC offset — leave blank to use the roll's" aria-label="UTC offset" spellcheck="false">
       <input type="text" class="lbl" value="${esc(b.label || '')}" placeholder="Label (optional)" aria-label="Label">
       <span class="warnmsg" hidden>Starts before the previous group ends</span>
-    </div></td></tr>`;
+    </div></div>`;
 }
+const tileOf = r => document.querySelector(`.tile[data-i="${rows.indexOf(r)}"]`);
 function render(){
   if (!rows.length) return;
-  const order = shootOrder(), hasBreaks = order.some(r => breaks.has(r.name));
-  $('#list').innerHTML = `<div class="tablewrap"><table><thead><tr>
-    <th><input type="checkbox" id="all" checked aria-label="Select all"></th><th></th><th>#</th><th class="nm">File</th><th class="cur">Currently</th><th>New timestamp</th><th></th><th></th>
-  </tr></thead><tbody>${order.map((r,k) => { const i = rows.indexOf(r); return `${k === 0 && hasBreaks ? breakRow(r, true) : ''}${k > 0 && breaks.has(r.name) ? breakRow(r) : ''}<tr data-i="${i}">
-    <td><input type="checkbox" class="inc" ${r.include?'checked':''} aria-label="Include ${esc(r.name)}"></td>
-    <td class="th">${r.kind==='jpeg' ? `<img loading="lazy" decoding="async" alt="">` : `<div class="ph">TIFF</div>`}</td>
-    <td class="n"></td><td class="name">${esc(r.name)}</td><td class="cur">…</td><td class="ts"></td><td class="st"></td>
-    <td class="act">${k > 0 && !breaks.has(r.name) ? `<button class="addbrk" title="Start a new date and time from this frame" aria-label="New date from this frame">+<span class="w"> Date</span></button>` : ''}</td>
-  </tr>`; }).join('')}</tbody></table></div>`;
+  const order = shootOrder(), hasBreaks = order.some((r, k) => k > 0 && breaks.has(r.name));
+  const skipped = rows.some(r => !r.include);
+  $('#list').innerHTML = `<div class="gridhead">
+      <span class="lg">Tap a photo to skip it · <b>+ Date</b> starts a new date from that frame</span><span class="sm">Tap to skip · <b>+</b> for a new date</span>
+      <span class="spacer"></span>
+      ${skipped ? '<button id="incAll">Include all</button>' : ''}
+      <label class="size">Size <input type="range" id="tileSize" min="120" max="420" step="10" value="${tileSize}" aria-label="Thumbnail size"></label>
+    </div>
+    <div class="photos" style="--tile:${tileSize}px">${order.map((r,k) => { const i = rows.indexOf(r); return `${k === 0 && hasBreaks ? breakRow(r, true) : ''}${k > 0 && breaks.has(r.name) ? breakRow(r) : ''}<figure class="tile${r.include ? '' : ' off'}" data-i="${i}" style="margin:0">
+      <button class="pic" aria-pressed="${!r.include}" title="${esc(r.name)} — tap to ${r.include ? 'skip' : 'include'}">${r.kind === 'jpeg' || r.kind === 'tiff' ? '<img alt="" decoding="async">' : ''}${r.kind === 'tiff' ? '<span class="tf">TIFF</span>' : ''}</button>
+      <span class="st"></span>
+      ${k > 0 && !breaks.has(r.name) ? `<button class="addbrk" title="Start a new date and time from this frame" aria-label="New date from this frame">+<span class="w"> Date</span></button>` : ''}
+      <figcaption><span class="n"></span><span class="ts"></span></figcaption>
+    </figure>`; }).join('')}</div>`;
   wireBreaks();
   const obs = new IntersectionObserver(es => es.forEach(e => {
     if (!e.isIntersecting) return; obs.unobserve(e.target);
-    queueThumb(e.target, rows[e.target.closest('tr').dataset.i]);
-  }), { rootMargin: '200px' });
-  document.querySelectorAll('td.th img').forEach(img => obs.observe(img));
-  document.querySelectorAll('.inc').forEach(cb => cb.onchange = () => { rows[cb.closest('tr').dataset.i].include = cb.checked; changed(); });
-  $('#all').onchange = e => { rows.forEach(r => r.include = e.target.checked); document.querySelectorAll('.inc').forEach(cb => cb.checked = e.target.checked); changed(); };
-  rows.forEach((r,i) => paintInfo(i));
+    queueThumb(e.target.querySelector('img'), rows[e.target.dataset.i]);
+  }), { rootMargin: '400px' });
+  document.querySelectorAll('.tile').forEach(t => { if (t.querySelector('img')) obs.observe(t); });
+  document.querySelectorAll('.tile .pic').forEach(b => b.onclick = () => {
+    const t = b.closest('.tile'), r = rows[t.dataset.i]; r.include = !r.include;
+    t.classList.toggle('off', !r.include); b.setAttribute('aria-pressed', String(!r.include));
+    b.title = `${r.name} — tap to ${r.include ? 'skip' : 'include'}`;
+    syncIncAll(); changed();
+  });
+  wireHead();
   rows.forEach(r => r.status && setStatus(r, r.status, r.msg));
   changed();
 }
+let tileSize = (() => { const v = store.get('tileSize'); return v || (matchMedia('(pointer:coarse)').matches ? 150 : 210); })();
+function wireHead(){
+  const sz = $('#tileSize');
+  if (sz) sz.oninput = () => { tileSize = +sz.value; $('.photos').style.setProperty('--tile', tileSize + 'px'); store.set('tileSize', tileSize); };
+  const inc = $('#incAll');
+  if (inc) inc.onclick = () => { rows.forEach(r => r.include = true); render(); };
+}
+function syncIncAll(){
+  const skipped = rows.some(r => !r.include), btn = $('#incAll');
+  if (skipped && !btn) { const b = document.createElement('button'); b.id = 'incAll'; b.textContent = 'Include all'; $('.gridhead .spacer').after(b); wireHead(); }
+  if (!skipped && btn) btn.remove();
+}
 function wireBreaks(){
   document.querySelectorAll('.addbrk').forEach(b => b.onclick = () => {
-    const r = rows[b.closest('tr').dataset.i], tm = times(), order = shootOrder();
+    const r = rows[b.closest('.tile').dataset.i], tm = times(), order = shootOrder();
     // default: the previous included frame's date, one hour later on the hour, so a same-day afternoon is one edit
     let prev = null;
     for (const x of order) { if (x === r) break; if (tm.get(x)) prev = tm.get(x); }
@@ -432,9 +456,9 @@ function wireBreaks(){
       date = `${n.getUTCFullYear()}-${pad(n.getUTCMonth()+1)}-${pad(n.getUTCDate())}`; time = `${pad(n.getUTCHours())}:00:00`;
     }
     breaks.set(r.name, { date, time, offset: '', label: '' }); saveBreaks(); render();
-    const t = document.querySelector(`tr[data-brk="${CSS.escape(r.name)}"] .t`); if (t) t.focus();
+    const t = document.querySelector(`.brk[data-brk="${CSS.escape(r.name)}"] .t`); if (t) t.focus();
   });
-  document.querySelectorAll('tr.brk[data-brk]').forEach(tr => {
+  document.querySelectorAll('.brk[data-brk]').forEach(tr => {
     const name = tr.dataset.brk, b = breaks.get(name);
     const upd = () => {
       b.date = tr.querySelector('.d').value; b.time = tr.querySelector('.t').value;
@@ -444,24 +468,6 @@ function wireBreaks(){
     tr.querySelectorAll('input').forEach(el => el.addEventListener('input', upd));
     tr.querySelector('.x').onclick = () => { breaks.delete(name); saveBreaks(); render(); };
   });
-}
-function paintInfo(i){
-  const r = rows[i], td = document.querySelector(`tr[data-i="${i}"] td.cur`); if (!td) return;
-  if (!r.info) { td.textContent = '…'; return; }
-  if (r.info.error) { td.innerHTML = `<span class="err">${esc(r.info.error)}</span>`; return; }
-  const d = r.info.date ? r.info.date.replace(/^(\d{4}):(\d\d):(\d\d)/, '$1-$2-$3') : 'no date';
-  const cam = [r.info.make, r.info.model].filter(Boolean).join(' ');
-  td.innerHTML = `${esc(d)}${cam ? ' · ' + esc(cam) : ''}${r.info.hasXmp ? '<span class="badge" title="This file has an XMP block. Some apps read dates from XMP before EXIF — see “Remove existing XMP” under More.">XMP</span>' : ''}`;
-}
-async function loadInfos(){
-  const mine = rows;
-  for (let i = 0; i < mine.length; i++){
-    if (rows !== mine) return;
-    const r = mine[i];
-    try { r.info = ExifCore.readInfo(new Uint8Array(await r.file.slice(0, 1 << 20).arrayBuffer()), r.kind); }
-    catch(e){ r.info = { error: e.message }; }
-    paintInfo(i);
-  }
 }
 
 // ---------- timestamps ----------
@@ -498,16 +504,17 @@ function changed(){
   updateEquiv(); store.set('last', getSettings());
   const tm = times();
   rows.forEach((r,i) => {
-    const tr = document.querySelector(`tr[data-i="${i}"]`); if (!tr) return;
-    const v = tm.get(r); tr.classList.toggle('off', !r.include);
-    tr.querySelector('.n').textContent = v ? v.frame : '';
-    const ts = tr.querySelector('.ts');
-    ts.textContent = v ? v.exif.replace(/^(\d{4}):(\d\d):(\d\d)/, '$1-$2-$3') + (v.offset && v.offset !== $('#offset').value.trim() ? ` ${v.offset}` : '') : '—';
+    const t = document.querySelector(`.tile[data-i="${i}"]`); if (!t) return;
+    const v = tm.get(r);
+    t.querySelector('.n').textContent = v ? v.frame : '';
+    const ts = t.querySelector('.ts');
+    ts.textContent = v ? v.exif.slice(11) : '';
+    ts.title = v ? v.exif.replace(/^(\d{4}):(\d\d):(\d\d)/, '$1-$2-$3') + (v.offset ? ' ' + v.offset : '') : '';
     ts.classList.toggle('warn', !!(v && v.warn));
   });
   const rs = $('#rollStartText');
   if (rs) rs.textContent = `${$('#date').value || '—'} · ${$('#time').value || '—'}${$('#offset').value ? ' ' + $('#offset').value : ''}`;
-  document.querySelectorAll('tr.brk[data-brk]').forEach(tr => {
+  document.querySelectorAll('.brk[data-brk]').forEach(tr => {
     const r = rows.find(x => x.name === tr.dataset.brk); let first = null;
     for (const x of shootOrder().slice(shootOrder().indexOf(r))) { if (tm.get(x)) { first = tm.get(x); break; } }
     tr.querySelector('.warnmsg').hidden = !(first && first.warn);
@@ -517,8 +524,8 @@ function changed(){
   $('#mbCount').textContent = tm.size ? `${tm.size} frame${tm.size===1?'':'s'}` : '';
 }
 function setStatus(r, status, msg){
-  r.status = status; const i = rows.indexOf(r), td = document.querySelector(`tr[data-i="${i}"] td.st`); if (!td) return;
-  td.innerHTML = status === 'done' ? '<span class="ok">✓ written</span>' : status === 'work' ? '<span class="work">writing…</span>' : status === 'error' ? `<span class="err" title="${esc(msg)}" onclick="alert(this.title)">✕ ${esc(msg)}</span>` : '';
+  r.status = status; r.msg = msg; const t = tileOf(r), el = t && t.querySelector('.st'); if (!el) return;
+  el.innerHTML = status === 'done' ? '<span class="ok">✓</span>' : status === 'work' ? '<span class="work">…</span>' : status === 'error' ? `<span class="err" title="${esc(msg)}" onclick="alert(this.title)">✕ failed</span>` : '';
 }
 
 // ---------- write ----------
@@ -580,7 +587,6 @@ async function writeAll(){
   s.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   busy = false; $('#openBtn').disabled = false; changed();
   setTimeout(() => { $('#bar').style.width = '0'; }, 800);
-  if (mode === 'overwrite' && dirHandle) { rows.forEach(r => r.info = null); loadInfos(); }
 }
 $('#writeBtn').onclick = writeAll;
 $('#mbWrite').onclick = writeAll;
@@ -599,16 +605,17 @@ async function runThumbs(){
   thumbRunning = false;
 }
 async function makeThumb(file){
-  const W = 216, H = 144; let src, release;
-  try { src = await createImageBitmap(file, { resizeWidth: W, resizeQuality: 'low' }); release = () => src.close(); }
+  // Keep the frame's shape; long edge ~640 px is sharp at the largest tile size on a retina screen.
+  const L = 640; let src, release;
+  try { src = await createImageBitmap(file, { resizeWidth: L, resizeQuality: 'medium' }); release = () => src.close(); }
   catch(e) {
     const u = URL.createObjectURL(file); src = new Image(); src.src = u; await src.decode();
     release = () => { src.src = ''; URL.revokeObjectURL(u); };
   }
-  const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const s = Math.max(W / src.width, H / src.height), dw = src.width * s, dh = src.height * s;
-  c.getContext('2d').drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh); release();
-  const b = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.7)); c.width = c.height = 0;
+  const s = Math.min(1, L / Math.max(src.width, src.height));
+  const c = document.createElement('canvas'); c.width = Math.round(src.width * s); c.height = Math.round(src.height * s);
+  c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); release();
+  const b = await new Promise(res => c.toBlob(res, 'image/jpeg', 0.78)); c.width = c.height = 0;
   return URL.createObjectURL(b);
 }
 
