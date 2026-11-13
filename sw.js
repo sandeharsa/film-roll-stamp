@@ -1,5 +1,5 @@
 // Network-first cache so Roll Stamp opens offline but always picks up updates when online.
-const CACHE = 'rollstamp-v5';
+const CACHE = 'rollstamp-v6';
 const FILES = ['./', './index.html', './contact.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => e.waitUntil(
