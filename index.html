@@ -879,8 +879,8 @@ function offerSave(files){
     zbar.appendChild(z);
   };
   const parts = touch ? batch(files, 300 * MB, Infinity) : [files];
-  zipButton(files, parts.length > 1 ? 'full ZIP' : 'ZIP', `${name}-exif.zip`, !canShare || !touch);
-  if (parts.length > 1) parts.forEach((g, i) => zipButton(g, `ZIP part ${i + 1}/${parts.length}`, `${name}-exif-${i + 1}.zip`, false));
+  zipButton(files, parts.length > 1 ? 'full ZIP' : 'ZIP', `${name}.zip`, !canShare || !touch);
+  if (parts.length > 1) parts.forEach((g, i) => zipButton(g, `ZIP part ${i + 1}/${parts.length}`, `${name}-${i + 1}.zip`, false));
   if (parts.length > 1) {
     const p = document.createElement('p'); p.className = 'hint';
     p.textContent = 'If the full ZIP reloads the page, use the parts — iOS can run out of memory on very large files.';
