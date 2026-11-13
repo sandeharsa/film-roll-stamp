@@ -10,6 +10,10 @@ Everything runs in the browser. Nothing is uploaded, and the image data is never
 - **Mac / PC in Chrome, Edge or Arc:** **Open folder** writes tagged copies into an `exif` subfolder, or overwrites the originals. Browsers can't set Finder's Created/Modified dates, so there's also **Download ZIP — Finder dates match**: every file in the ZIP carries its new timestamp, and unzipping gives files whose Finder dates match.
 - **Safari / Firefox on desktop:** pick files or a folder; results download as a ZIP.
 
+## Several dates on one roll
+
+Tap **+ Date** on a frame to start a new date and time from that frame. A divider appears in the list with its own date, start time, optional UTC offset (for a roll that crosses time zones) and optional label. Frames after it count up from the new start until the next divider; ✕ removes a divider. If a group starts before the previous one ends, its timestamps turn amber. Dividers are remembered for that folder.
+
 ## What gets written
 
 | Field | EXIF tag |

@@ -89,6 +89,32 @@ td.name{font-family:var(--mono);word-break:break-all}
 td.cur{color:var(--muted);font-size:12px}
 td.ts{font-family:var(--mono);white-space:nowrap}
 td.st{white-space:nowrap;font-size:12px}
+td.ts.warn{color:var(--warn)}
+td.act{width:1%;white-space:nowrap;text-align:right;padding-left:0}
+.addbrk{font-size:12px;padding:3px 8px;color:var(--muted);background:transparent;border-color:transparent;opacity:0;transition:opacity .12s}
+tr:hover .addbrk,.addbrk:focus-visible{opacity:1;border-color:var(--line);color:var(--ink)}
+@media (hover:none){.addbrk{opacity:1;border-color:var(--line)}}
+tr.brk td{background:var(--row);border-top:2px solid var(--ink);padding:8px 10px}
+tr.brk:hover td{background:var(--row)}
+tr.brk.first td{border-top:0}
+.brkrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.brkrow .tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-right:2px}
+.brkrow input{font:inherit;font-size:13px;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:5px 7px;min-width:0}
+.brkrow input[type=date]{width:150px} .brkrow input[type=time]{width:140px}
+.brkrow input.off{width:78px;font-family:var(--mono)} .brkrow input.lbl{flex:1;min-width:120px;max-width:260px}
+.brkrow .static{font-family:var(--mono);font-size:13px}
+.brkrow .hint2{font-size:12px;color:var(--muted)}
+.brkrow .warnmsg{font-size:12px;color:var(--warn)}
+.brkrow button.x{order:9;margin-left:auto;padding:4px 9px;font-size:13px}
+@media (pointer:coarse){.brkrow input{font-size:16px}}
+@media (max-width:640px){
+  .brkrow .tag{flex:1 0 60%} .brkrow button.x{order:0}
+  .brkrow input[type=date],.brkrow input[type=time]{flex:1 1 40%;width:auto;min-width:130px}
+  .brkrow input.off{flex:0 0 88px} .brkrow input.lbl{flex:1 1 40%;max-width:none}
+  .brkrow .warnmsg{flex-basis:100%}
+  .addbrk .w{display:none} .addbrk{padding:3px 9px;font-size:15px}
+  td.act{padding-right:8px}
+}
 .badge{display:inline-block;font-size:10px;letter-spacing:.06em;border:1px solid var(--warn);color:var(--warn);border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:1px}
 .ok{color:var(--ok)} .err{color:var(--err)} .work{color:var(--muted)}
 .summary{padding:10px 16px;font-size:13px;border-bottom:1px solid var(--line);display:none}
@@ -106,7 +132,7 @@ a.button{display:inline-block;text-decoration:none;font-size:13px;border-radius:
 @media (pointer:coarse){input[type=text],input[type=number],input[type=date],input[type=time],select{font-size:16px}}
 @media (max-width:900px){section.files{order:-1}}
 @media (max-width:640px){
-  header{padding:14px 16px 12px} th.cur,td.cur{display:none} td{padding:6px 5px} td.name{font-size:11px;word-break:normal;overflow-wrap:anywhere}
+  header{padding:14px 16px 12px} th.cur,td.cur,th.nm,td.name{display:none} td{padding:6px 5px} td.name{font-size:11px;word-break:normal;overflow-wrap:anywhere}
   td.ts{font-size:12px} td.th img,td.th .ph{width:40px;height:28px} #zipNote{font-size:12px}
   #writeBtn,.toolbar .spacer{display:none}
   body.has-rows .mobilebar{display:flex} body.has-rows{padding-bottom:84px}
@@ -636,6 +662,7 @@ $('#lensModel').addEventListener('change', () => {
 });
 $('#film').addEventListener('change', () => { const iso = FILMS[$('#film').value]; if (iso) $('#iso').value = iso; changed(); });
 $('#offset').addEventListener('input', () => { offsetTouched = true; });
+$('#reverse').addEventListener('change', () => { if (rows.length) render(); });
 ['#date','#time'].forEach(s => $(s).addEventListener('change', () => { if (!offsetTouched) $('#offset').value = localOffsetFor($('#date').value, $('#time').value); }));
 document.querySelectorAll('aside input, aside select, #subName, input[name=outMode]').forEach(el => el.addEventListener('input', changed));
 
@@ -646,6 +673,10 @@ function updateEquiv(){
 
 // ---------- files ----------
 let rows = [], dirHandle = null, busy = false;
+// Date breaks: filename -> { date:'YYYY-MM-DD', time:'HH:MM:SS', offset:'' | '+09:00', label:'' }.
+// A break starts a new group at that frame (in shooting order); later frames step on from it.
+let breaks = new Map(), breakKey = '';
+function saveBreaks(){ if (breakKey) store.set('breaks:' + breakKey, [...breaks]); }
 const kindOf = n => /\.jpe?g$/i.test(n) ? 'jpeg' : /\.tiff?$/i.test(n) ? 'tiff' : null;
 
 async function loadDir(handle){
@@ -664,18 +695,40 @@ function setRows(list, label, handle){
   $('#zipNote').hidden = !!dirHandle || !rows.length;
   if (hasFSA && !dirHandle) $('#zipNote').innerHTML = 'These were picked as separate files, so the copies download as a ZIP. To save straight into the folder, use <b>&nbsp;Open folder&nbsp;</b> or drag the whole folder in.';
   $('#summary').className = 'summary';
+  breakKey = rows.length ? `${label}|${rows[0].name}|${rows[rows.length - 1].name}|${rows.length}` : '';
+  const saved = breakKey && store.get('breaks:' + breakKey);
+  breaks = new Map((saved || []).filter(([n]) => rows.some(r => r.name === n)));
   document.body.classList.toggle('has-rows', rows.length > 0);
   render(); loadInfos();
 }
+const shootOrder = () => $('#reverse').checked ? rows.slice().reverse() : rows;
+function breakRow(r, first){
+  if (first) return `<tr class="brk first" data-start><td colspan="8"><div class="brkrow">
+      <span class="tag">Roll start</span><span class="static" id="rollStartText"></span>
+      <span class="hint2">set in the panel</span></div></td></tr>`;
+  const b = breaks.get(r.name);
+  return `<tr class="brk" data-brk="${esc(r.name)}"><td colspan="8"><div class="brkrow">
+      <span class="tag">New date</span>
+      <button class="x" title="Remove — these frames continue from the group above" aria-label="Remove date break">✕</button>
+      <input type="date" class="d" value="${esc(b.date)}" aria-label="Date">
+      <input type="time" class="t" step="1" value="${esc(b.time)}" aria-label="Start time">
+      <input type="text" class="off" value="${esc(b.offset || '')}" placeholder="${esc($('#offset').value || 'UTC±')}" title="UTC offset — leave blank to use the roll's" aria-label="UTC offset" spellcheck="false">
+      <input type="text" class="lbl" value="${esc(b.label || '')}" placeholder="Label (optional)" aria-label="Label">
+      <span class="warnmsg" hidden>Starts before the previous group ends</span>
+    </div></td></tr>`;
+}
 function render(){
   if (!rows.length) return;
+  const order = shootOrder(), hasBreaks = order.some(r => breaks.has(r.name));
   $('#list').innerHTML = `<div class="tablewrap"><table><thead><tr>
-    <th><input type="checkbox" id="all" checked aria-label="Select all"></th><th></th><th>#</th><th>File</th><th class="cur">Currently</th><th>New timestamp</th><th></th>
-  </tr></thead><tbody>${rows.map((r,i) => `<tr data-i="${i}">
+    <th><input type="checkbox" id="all" checked aria-label="Select all"></th><th></th><th>#</th><th class="nm">File</th><th class="cur">Currently</th><th>New timestamp</th><th></th><th></th>
+  </tr></thead><tbody>${order.map((r,k) => { const i = rows.indexOf(r); return `${k === 0 && hasBreaks ? breakRow(r, true) : ''}${k > 0 && breaks.has(r.name) ? breakRow(r) : ''}<tr data-i="${i}">
     <td><input type="checkbox" class="inc" ${r.include?'checked':''} aria-label="Include ${esc(r.name)}"></td>
     <td class="th">${r.kind==='jpeg' ? `<img loading="lazy" decoding="async" alt="">` : `<div class="ph">TIFF</div>`}</td>
     <td class="n"></td><td class="name">${esc(r.name)}</td><td class="cur">…</td><td class="ts"></td><td class="st"></td>
-  </tr>`).join('')}</tbody></table></div>`;
+    <td class="act">${k > 0 && !breaks.has(r.name) ? `<button class="addbrk" title="Start a new date and time from this frame" aria-label="New date from this frame">+<span class="w"> Date</span></button>` : ''}</td>
+  </tr>`; }).join('')}</tbody></table></div>`;
+  wireBreaks();
   const obs = new IntersectionObserver(es => es.forEach(e => {
     if (!e.isIntersecting) return; obs.unobserve(e.target);
     queueThumb(e.target, rows[e.target.closest('tr').dataset.i]);
@@ -683,7 +736,34 @@ function render(){
   document.querySelectorAll('td.th img').forEach(img => obs.observe(img));
   document.querySelectorAll('.inc').forEach(cb => cb.onchange = () => { rows[cb.closest('tr').dataset.i].include = cb.checked; changed(); });
   $('#all').onchange = e => { rows.forEach(r => r.include = e.target.checked); document.querySelectorAll('.inc').forEach(cb => cb.checked = e.target.checked); changed(); };
-  rows.forEach((r,i) => paintInfo(i)); changed();
+  rows.forEach((r,i) => paintInfo(i));
+  rows.forEach(r => r.status && setStatus(r, r.status, r.msg));
+  changed();
+}
+function wireBreaks(){
+  document.querySelectorAll('.addbrk').forEach(b => b.onclick = () => {
+    const r = rows[b.closest('tr').dataset.i], tm = times(), order = shootOrder();
+    // default: the previous included frame's date, one hour later on the hour, so a same-day afternoon is one edit
+    let prev = null;
+    for (const x of order) { if (x === r) break; if (tm.get(x)) prev = tm.get(x); }
+    let date = $('#date').value, time = '12:00:00';
+    if (prev) {
+      const [Y,M,D,h] = prev.exif.split(/[: ]/).map(Number), n = new Date(Date.UTC(Y, M-1, D, h + 1));
+      date = `${n.getUTCFullYear()}-${pad(n.getUTCMonth()+1)}-${pad(n.getUTCDate())}`; time = `${pad(n.getUTCHours())}:00:00`;
+    }
+    breaks.set(r.name, { date, time, offset: '', label: '' }); saveBreaks(); render();
+    const t = document.querySelector(`tr[data-brk="${CSS.escape(r.name)}"] .t`); if (t) t.focus();
+  });
+  document.querySelectorAll('tr.brk[data-brk]').forEach(tr => {
+    const name = tr.dataset.brk, b = breaks.get(name);
+    const upd = () => {
+      b.date = tr.querySelector('.d').value; b.time = tr.querySelector('.t').value;
+      b.offset = tr.querySelector('.off').value.trim(); b.label = tr.querySelector('.lbl').value;
+      saveBreaks(); changed();
+    };
+    tr.querySelectorAll('input').forEach(el => el.addEventListener('input', upd));
+    tr.querySelector('.x').onclick = () => { breaks.delete(name); saveBreaks(); render(); };
+  });
 }
 function paintInfo(i){
   const r = rows[i], td = document.querySelector(`tr[data-i="${i}"] td.cur`); if (!td) return;
@@ -705,14 +785,33 @@ async function loadInfos(){
 }
 
 // ---------- timestamps ----------
-function times(){
-  const d = $('#date').value, t = $('#time').value, step = Math.max(1, parseInt($('#interval').value, 10) || 5);
-  const map = new Map(); if (!d || !t) return map;
+const wall = (d, t) => { // 'YYYY-MM-DD', 'HH:MM[:SS]' -> wall-clock ms (as UTC), or null
+  if (!d || !t) return null;
   const [y,m,dd] = d.split('-').map(Number), [h,mi,s] = t.split(':').map(Number);
-  const start = Date.UTC(y, m-1, dd, h||0, mi||0, s||0);
-  let order = rows.filter(r => r.include); if ($('#reverse').checked) order = order.slice().reverse();
-  order.forEach((r,k) => { const x = new Date(start + k*step*1000);
-    map.set(r, { exif:`${x.getUTCFullYear()}:${pad(x.getUTCMonth()+1)}:${pad(x.getUTCDate())} ${pad(x.getUTCHours())}:${pad(x.getUTCMinutes())}:${pad(x.getUTCSeconds())}`, frame:k+1 }); });
+  return isFinite(y) && y ? Date.UTC(y, m-1, dd, h||0, mi||0, s||0) : null;
+};
+const offMin = o => { const m = /^([+-])(\d\d):(\d\d)$/.exec(o || ''); return m ? (m[1] === '-' ? -1 : 1) * (m[2] * 60 + +m[3]) : 0; };
+// Frame number -> { exif, frame, offset, group, warn }. Groups start at the roll start and at each date break,
+// in shooting order; a break on an unticked frame still starts its group at the next ticked one.
+function times(){
+  const step = Math.max(1, parseInt($('#interval').value, 10) || 5) * 1000;
+  const map = new Map();
+  let start = wall($('#date').value, $('#time').value);
+  if (start === null) return map;
+  let offset = $('#offset').value.trim(), k = 0, frame = 0, group = 0, warn = false, lastAbs = -Infinity;
+  shootOrder().forEach((r, idx) => {
+    const b = idx > 0 && breaks.get(r.name);
+    if (b) {
+      const w = wall(b.date, b.time);
+      if (w !== null) { start = w; offset = b.offset || $('#offset').value.trim(); k = 0; group++; warn = null; }
+    }
+    if (!r.include) return;
+    const ms = start + k * step, x = new Date(ms), abs = ms - offMin(offset) * 60000;
+    if (warn === null) warn = abs <= lastAbs; // this group starts before the last one ended
+    lastAbs = abs; k++; frame++;
+    map.set(r, { exif:`${x.getUTCFullYear()}:${pad(x.getUTCMonth()+1)}:${pad(x.getUTCDate())} ${pad(x.getUTCHours())}:${pad(x.getUTCMinutes())}:${pad(x.getUTCSeconds())}`,
+                 frame, offset: offset || null, group, warn: !!warn });
+  });
   return map;
 }
 function changed(){
@@ -722,7 +821,17 @@ function changed(){
     const tr = document.querySelector(`tr[data-i="${i}"]`); if (!tr) return;
     const v = tm.get(r); tr.classList.toggle('off', !r.include);
     tr.querySelector('.n').textContent = v ? v.frame : '';
-    tr.querySelector('.ts').textContent = v ? v.exif.replace(/^(\d{4}):(\d\d):(\d\d)/, '$1-$2-$3') : '—';
+    const ts = tr.querySelector('.ts');
+    ts.textContent = v ? v.exif.replace(/^(\d{4}):(\d\d):(\d\d)/, '$1-$2-$3') + (v.offset && v.offset !== $('#offset').value.trim() ? ` ${v.offset}` : '') : '—';
+    ts.classList.toggle('warn', !!(v && v.warn));
+  });
+  const rs = $('#rollStartText');
+  if (rs) rs.textContent = `${$('#date').value || '—'} · ${$('#time').value || '—'}${$('#offset').value ? ' ' + $('#offset').value : ''}`;
+  document.querySelectorAll('tr.brk[data-brk]').forEach(tr => {
+    const r = rows.find(x => x.name === tr.dataset.brk); let first = null;
+    for (const x of shootOrder().slice(shootOrder().indexOf(r))) { if (tm.get(x)) { first = tm.get(x); break; } }
+    tr.querySelector('.warnmsg').hidden = !(first && first.warn);
+    tr.querySelector('.off').placeholder = $('#offset').value || 'UTC±';
   });
   $('#writeBtn').disabled = $('#mbWrite').disabled = busy || !tm.size;
   $('#mbCount').textContent = tm.size ? `${tm.size} frame${tm.size===1?'':'s'}` : '';
@@ -736,6 +845,10 @@ function setStatus(r, status, msg){
 async function writeAll(){
   const off = $('#offset').value.trim();
   if (off && !/^[+-]\d{2}:\d{2}$/.test(off)) { alert('UTC offset should look like +11:00 or -05:00 (or leave it blank).'); return; }
+  const badOff = [...breaks.values()].find(b => b.offset && !/^[+-]\d{2}:\d{2}$/.test(b.offset));
+  if (badOff) { alert(`The UTC offset “${badOff.offset}” on a date break should look like +09:00 (or leave it blank).`); return; }
+  const badDate = [...breaks.entries()].find(([n, b]) => rows.some(r => r.name === n) && wall(b.date, b.time) === null);
+  if (badDate) { alert(`The date break at ${badDate[0]} needs a date and time.`); return; }
   const tm = times(); if (!tm.size) return;
   const mode = document.querySelector('input[name=outMode]:checked').value;
   const sub = $('#subName').value.trim().replace(/[\\/:*?"<>|]/g, '') || 'exif';
@@ -764,9 +877,9 @@ async function writeAll(){
   for (const r of todo){
     setStatus(r, 'work');
     try {
-      const ed = { ...base, dateTime: tm.get(r).exif };
+      const ed = { ...base, dateTime: tm.get(r).exif, offset: tm.get(r).offset };
       let blob = r.kind === 'jpeg' ? await ExifCore.processJpeg(r.file, ed) : await ExifCore.processTiff(r.file, ed);
-      if (outputs) { const f = new File([blob], r.name, { type: blob.type }); whenOf.set(f, { exif: ed.dateTime, offset: base.offset }); outputs.push(f); }
+      if (outputs) { const f = new File([blob], r.name, { type: blob.type }); whenOf.set(f, { exif: ed.dateTime, offset: ed.offset }); outputs.push(f); }
       else {
         const inPlace = outDir === dirHandle;
         if (inPlace) blob = new Blob([await blob.arrayBuffer()], { type: blob.type }); // detach from the original before replacing it
