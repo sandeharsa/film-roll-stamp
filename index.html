@@ -644,6 +644,7 @@ function setRows(list, label, handle){
   $('#folderLabel').textContent = rows.length ? `${label} · ${rows.length} scan${rows.length===1?'':'s'}` : (label ? `${label} · no JPEG/TIFF files` : '');
   $('#outOpts').hidden = !dirHandle || !rows.length;
   $('#zipNote').hidden = !!dirHandle || !rows.length;
+  if (hasFSA && !dirHandle) $('#zipNote').innerHTML = 'These were picked as separate files, so the copies download as a ZIP. To save straight into the folder, use <b>&nbsp;Open folder&nbsp;</b> or drag the whole folder in.';
   $('#summary').className = 'summary';
   document.body.classList.toggle('has-rows', rows.length > 0);
   render(); loadInfos();
@@ -863,6 +864,10 @@ function offerSave(files){
 // ---------- opening ----------
 const hasFSA = 'showDirectoryPicker' in window;
 const touch = matchMedia('(pointer:coarse)').matches;
+if (!hasFSA && !touch) $('#zipNote').innerHTML = /Chrome/.test(navigator.userAgent) && !window.isSecureContext
+  ? 'This page was opened over plain http, so Chrome won’t let it save into folders. Open it over https instead. Tagged copies download as a ZIP for now.'
+  : navigator.brave ? 'Brave turns off saving into folders. Turn on <b>&nbsp;brave://flags/#file-system-access-api&nbsp;</b>, or use Chrome, Edge or Arc. Tagged copies download as a ZIP for now.'
+  : 'This browser can’t save back into folders, so tagged copies download as a ZIP. Chrome, Edge or Arc can save straight into the folder.';
 if (!hasFSA) {
   $('#openBtn').textContent = 'Choose scans';
   $('#folderBtn').hidden = touch;
@@ -903,9 +908,7 @@ document.addEventListener('drop', async e => {
   if (handles[0]) {
     try {
       const h = await handles[0];
-      if (h && h.kind === 'directory') {
-        if ((await h.requestPermission({ mode: 'readwrite' })) === 'granted') { await loadDir(h); return; }
-      }
+      if (h && h.kind === 'directory') { await loadDir(h); return; } // write access is asked for on Write
     } catch(err) {}
   }
   let label = 'dropped files';
