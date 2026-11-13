@@ -194,6 +194,7 @@ a.button{display:inline-block;text-decoration:none;font-size:13px;border-radius:
     <label><input type="radio" name="outMode" value="subfolder" checked> Save copies to subfolder</label>
     <input type="text" id="subName" value="exif" spellcheck="false" aria-label="Subfolder name">
     <label><input type="radio" name="outMode" value="overwrite"> Overwrite originals</label>
+    <label title="Browsers can't set Finder's Created/Modified dates, but a ZIP can carry them: unzip it and each scan's dates match its new timestamp."><input type="radio" name="outMode" value="zip"> Download ZIP — Finder dates match</label>
   </div>
   <div class="out" id="zipNote" hidden>This browser can't save back into folders. After writing you'll get <b>&nbsp;Save to Photos / Share&nbsp;</b> (on phones) or a ZIP. On a computer, Chrome, Edge or Arc can save straight into the folder.</div>
   <div class="progress"><i id="bar"></i></div>
@@ -330,6 +331,7 @@ const kindOf = n => /\.jpe?g$/i.test(n) ? 'jpeg' : /\.tiff?$/i.test(n) ? 'tiff' 
 async function loadDir(handle){
   const list = [];
   for await (const [name, h] of handle.entries()) if (h.kind === 'file' && kindOf(name) && !name.startsWith('.')) list.push({ name, handle: h, file: await h.getFile() });
+  $('#folderLabel').dataset.name = handle.name;
   setRows(list, handle.name, handle);
 }
 function setRows(list, label, handle){
@@ -431,7 +433,7 @@ async function writeAll(){
   busy = true; changed(); $('#openBtn').disabled = true;
   let outDir = null, outputs = null;
   try {
-    if (dirHandle) {
+    if (dirHandle && mode !== 'zip') {
       if ((await dirHandle.queryPermission({mode:'readwrite'})) !== 'granted' && (await dirHandle.requestPermission({mode:'readwrite'})) !== 'granted') throw new Error('Permission to write to the folder was not granted.');
       outDir = mode === 'overwrite' ? dirHandle : await dirHandle.getDirectoryHandle(sub, { create: true });
     } else outputs = [];
@@ -444,7 +446,7 @@ async function writeAll(){
     try {
       const ed = { ...base, dateTime: tm.get(r).exif };
       let blob = r.kind === 'jpeg' ? await ExifCore.processJpeg(r.file, ed) : await ExifCore.processTiff(r.file, ed);
-      if (outputs) outputs.push(new File([blob], r.name, { type: blob.type }));
+      if (outputs) { const f = new File([blob], r.name, { type: blob.type }); whenOf.set(f, { exif: ed.dateTime, offset: base.offset }); outputs.push(f); }
       else {
         const inPlace = outDir === dirHandle;
         if (inPlace) blob = new Blob([await blob.arrayBuffer()], { type: blob.type }); // detach from the original before replacing it
@@ -458,7 +460,7 @@ async function writeAll(){
   }
   let where = '';
   if (outDir && ok) where = mode === 'overwrite' ? ' in place' : ` to “${dirHandle.name}/${sub}”`;
-  else if (outputs && ok) where = ' — save them below';
+  else if (outputs && ok) where = mode === 'zip' && dirHandle ? ' — download the ZIP below, then unzip it' : ' — save them below';
   const s = $('#summary'); s.className = 'summary show';
   s.innerHTML = `<span class="${fail ? 'err' : 'ok'}">${ok} file${ok===1?'':'s'} tagged${esc(where)}${fail ? ` · ${fail} failed (tap the ✕ for details)` : ''}.</span>`;
   if (outputs && outputs.length) offerSave(outputs);
@@ -508,6 +510,7 @@ function batch(files, maxBytes, maxCount){
   return out;
 }
 const zipUrls = [];
+const whenOf = new WeakMap(); // tagged File -> its new timestamp, used as the date inside ZIPs
 function offerSave(files){
   zipUrls.splice(0).forEach(u => URL.revokeObjectURL(u));
   const MB = 1048576, name = $('#folderLabel').dataset.name || 'scans';
@@ -545,7 +548,7 @@ function offerSave(files){
       z.disabled = true;
       try {
         const zip = new ExifCore.Zip();
-        for (let k = 0; k < g.length; k++) { z.textContent = `Building ZIP${part}… ${k}/${g.length}`; await zip.add(g[k].name, g[k]); }
+        for (let k = 0; k < g.length; k++) { z.textContent = `Building ZIP${part}… ${k}/${g.length}`; await zip.add(g[k].name, g[k], whenOf.get(g[k])); }
         const url = URL.createObjectURL(zip.finish()); zipUrls.push(url);
         const a = document.createElement('a'); a.className = 'button' + (canShare ? '' : ' primary');
         a.href = url; a.download = `${name}-exif${zgroups.length > 1 ? '-' + (i + 1) : ''}.zip`; a.textContent = `Download ZIP${part}`;

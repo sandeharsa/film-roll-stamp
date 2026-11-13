@@ -269,26 +269,42 @@ const ExifCore = (() => {
     for (let o = 0; o < blob.size; o += CH) c = crcUpdate(c, new Uint8Array(await blob.slice(o, o + CH).arrayBuffer()));
     return (c ^ 0xFFFFFFFF) >>> 0;
   }
+  function wallTime(when) {
+    const m = when && when.exif && when.exif.match(/^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/);
+    if (!m) { const n = new Date(); return { y: n.getFullYear(), mo: n.getMonth() + 1, d: n.getDate(), h: n.getHours(), mi: n.getMinutes(), s: n.getSeconds(), unix: n.getTime() / 1000 }; }
+    const [y, mo, d, h, mi, s] = m.slice(1).map(Number);
+    const o = when.offset && when.offset.match(/^([+-])(\d\d):(\d\d)$/);
+    const unix = o ? (Date.UTC(y, mo - 1, d, h, mi, s) - (o[1] === '-' ? -1 : 1) * (o[2] * 60 + +o[3]) * 60000) / 1000
+                   : new Date(y, mo - 1, d, h, mi, s).getTime() / 1000;
+    return { y, mo, d, h, mi, s, unix };
+  }
   class Zip {
     constructor() { this.parts = []; this.central = []; this.offset = 0; this.count = 0; }
-    async add(name, blob) {
+    // when: optional { exif: 'YYYY:MM:DD HH:MM:SS', offset: '+11:00' | null } — the file's date once unzipped.
+    // Written both as the classic DOS time (local, 2-second steps) and an exact UTC 'UT' extra field,
+    // which macOS Archive Utility, Windows and unzip use for the extracted file's modified date.
+    async add(name, blob, when) {
       const data = { length: blob.size };
-      const crc = await crcBlob(blob), nm = te.encode(name), now = new Date();
-      const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
-      const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
-      if (this.offset + 30 + nm.length + data.length > 0xFFFFFFFF) throw new Error('ZIP would exceed 4 GB');
+      const crc = await crcBlob(blob), nm = te.encode(name);
+      const w = wallTime(when);
+      const time = (w.h << 11) | (w.mi << 5) | (w.s >> 1);
+      const date = ((Math.max(1980, w.y) - 1980) << 9) | (w.mo << 5) | w.d;
+      const ut = new DataView(new ArrayBuffer(9));
+      ut.setUint16(0, 0x5455, true); ut.setUint16(2, 5, true); ut.setUint8(4, 1); ut.setUint32(5, Math.max(0, Math.floor(w.unix)), true);
+      const xl = ut.byteLength;
+      if (this.offset + 30 + nm.length + xl + data.length > 0xFFFFFFFF) throw new Error('ZIP would exceed 4 GB');
       const lh = new DataView(new ArrayBuffer(30));
       lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
       lh.setUint16(10, time, true); lh.setUint16(12, date, true); lh.setUint32(14, crc, true);
-      lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, nm.length, true); lh.setUint16(28, 0, true);
+      lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, nm.length, true); lh.setUint16(28, xl, true);
       const ch = new DataView(new ArrayBuffer(46));
       ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
       ch.setUint16(12, time, true); ch.setUint16(14, date, true); ch.setUint32(16, crc, true);
-      ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nm.length, true);
+      ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nm.length, true); ch.setUint16(30, xl, true);
       ch.setUint32(42, this.offset, true);
-      this.parts.push(lh.buffer, nm, blob); // blob stays a reference, not a copy
-      this.central.push(ch.buffer, nm);
-      this.offset += 30 + nm.length + data.length;
+      this.parts.push(lh.buffer, nm, ut.buffer, blob); // blob stays a reference, not a copy
+      this.central.push(ch.buffer, nm, ut.buffer);
+      this.offset += 30 + nm.length + xl + data.length;
       this.count++;
     }
     finish() {

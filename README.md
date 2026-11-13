@@ -7,7 +7,7 @@ Everything runs in the browser. Nothing is uploaded, and the image data is never
 ## Using it
 
 - **iPhone / Android:** open the site in Safari or Chrome and add it to your Home Screen. Tap **Choose scans** and pick the files from Files rather than the Photo Library, set the roll details, then tap **Write EXIF**. Save the results with **Save to Photos / Share…** or as a ZIP.
-- **Mac / PC in Chrome, Edge or Arc:** **Open folder** writes tagged copies into an `exif` subfolder, or overwrites the originals.
+- **Mac / PC in Chrome, Edge or Arc:** **Open folder** writes tagged copies into an `exif` subfolder, or overwrites the originals. Browsers can't set Finder's Created/Modified dates, so there's also **Download ZIP — Finder dates match**: every file in the ZIP carries its new timestamp, and unzipping gives files whose Finder dates match.
 - **Safari / Firefox on desktop:** pick files or a folder; results download as a ZIP.
 
 ## What gets written
